@@ -7,16 +7,18 @@ import {
   View,
 } from "react-native";
 import DeviceModal from "./DeviceConnectionModal";
+import { PulseIndicator } from "./PulseIndicator";
 import useBLE from "./useBLE";
 
 const App = () => {
   const {
-    allDevices,
-    connectedDevice,
-    connectToDevice,
-    color,
     requestPermissions,
     scanForPeripherals,
+    allDevices,
+    connectToDevice,
+    connectedDevice,
+    heartRate,
+    disconnectFromDevice,
   } = useBLE();
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
 
@@ -37,20 +39,27 @@ const App = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: color }]}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.heartRateTitleWrapper}>
         {connectedDevice ? (
           <>
-            <Text style={styles.heartRateTitleText}>Connected</Text>
+            <PulseIndicator />
+            <Text style={styles.heartRateTitleText}>Your Heart Rate Is:</Text>
+            <Text style={styles.heartRateText}>{heartRate} bpm</Text>
           </>
         ) : (
           <Text style={styles.heartRateTitleText}>
-            Please connect the Arduino
+            Please Connect to a Heart Rate Monitor
           </Text>
         )}
       </View>
-      <TouchableOpacity onPress={openModal} style={styles.ctaButton}>
-        <Text style={styles.ctaButtonText}>Connect</Text>
+      <TouchableOpacity
+        onPress={connectedDevice ? disconnectFromDevice : openModal}
+        style={styles.ctaButton}
+      >
+        <Text style={styles.ctaButtonText}>
+          {connectedDevice ? "Disconnect" : "Connect"}
+        </Text>
       </TouchableOpacity>
       <DeviceModal
         closeModal={hideModal}

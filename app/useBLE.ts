@@ -139,17 +139,17 @@ function useBLE() {
     setColor(color);
   };
 
-  const startStreamingData = async (device: Device) => {
-    if (device) {
-      device.monitorCharacteristicForService(
-        DATA_SERVICE_UUID,
-        COLOR_CHARACTERISTIC_UUID,
-        onDataUpdate
-      );
-    } else {
-      console.log("No Device Connected");
-    }
-  };
+  // const startStreamingData = async (device: Device) => {
+  //   if (device) {
+  //     device.monitorCharacteristicForService(
+  //       DATA_SERVICE_UUID,
+  //       COLOR_CHARACTERISTIC_UUID,
+  //       onDataUpdate
+  //     );
+  //   } else {
+  //     console.log("No Device Connected");
+  //   }
+  // };
 
   return {
     connectToDevice,
@@ -158,7 +158,7 @@ function useBLE() {
     color,
     requestPermissions,
     scanForPeripherals,
-    startStreamingData,
+    // startStreamingData,
   };
 }
 
