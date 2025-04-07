@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, FlatList, PermissionsAndroid, Platform, Alert } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
+import { useRouter } from 'expo-router';
+
 
 const manager = new BleManager();
 
@@ -51,14 +53,22 @@ export default function App() {
     }, 5000);
   };
 
+  const router = useRouter();
+
   const connectToDevice = async (deviceId) => {
     setErrorMessage(null);
     try {
       const device = await manager.connectToDevice(deviceId, { autoConnect: true });
       await device.discoverAllServicesAndCharacteristics();
-
+  
       setConnectedDevice(device);
-      Alert.alert('✅ Connected', `Connected to ${device.name}`);
+  
+      // Navigate to landing page and pass device name
+      router.push({
+        pathname: '/landing',
+        params: { name: device.name || 'Unknown Device' },
+      });
+  
     } catch (error) {
       console.error('❌ Connection failed:', error);
       setErrorMessage(`Connection failed: ${error.message}`);
