@@ -4,8 +4,9 @@ import { useLocalSearchParams } from 'expo-router';
 import { BleManager } from 'react-native-ble-plx';
 import { LineChart } from 'react-native-chart-kit';
 import { Buffer } from 'buffer';
+import LinearGradient from 'react-native-linear-gradient';
 
-const manager = new BleManager();
+import manager from './lib/ble'; // or './lib/BLE' depending on your structure
 
 export default function PlotScreen() {
   const { id, name } = useLocalSearchParams();
@@ -39,9 +40,8 @@ export default function PlotScreen() {
                 if (characteristic?.value) {
                   const base64 = characteristic.value;
                   const buffer = Buffer.from(base64, 'base64');
-                  const intValue = buffer.readInt32LE(0); // Or readInt16LE based on device
-
-                  setDataPoints(prev => [...prev.slice(-99), intValue]); // Keep last 100
+                  const intValue = buffer.readInt32LE(0); 
+                  setDataPoints(prev => [...prev.slice(-99), intValue]); 
                   setStatus(`Plotting from ${name}`);
                 }
               });

@@ -4,7 +4,7 @@ import { BleManager } from 'react-native-ble-plx';
 import { useRouter } from 'expo-router';
 
 
-const manager = new BleManager();
+import manager from './lib/ble'; // or './lib/BLE' depending on your structure
 
 export default function App() {
   const [devices, setDevices] = useState({});

@@ -106,7 +106,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
 
-const manager = new BleManager();
+import manager from './lib/ble'; // or './lib/BLE' depending on your structure
 
 export default function ECGScreen() {
   const { id, name } = useLocalSearchParams();
