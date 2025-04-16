@@ -66,7 +66,10 @@ export default function App() {
       // Navigate to landing page and pass device name
       router.push({
         pathname: '/landing',
-        params: { name: device.name || 'Unknown Device' },
+        params: {
+          name: device.name || 'Unknown Device',
+          id: device.id,
+        },
       });
   
     } catch (error) {
