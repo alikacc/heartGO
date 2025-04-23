@@ -1,358 +1,112 @@
-
-
-// import React, { useEffect, useState } from 'react';
-// import { View, Text, StyleSheet, Button } from 'react-native';
-// import { useLocalSearchParams, useRouter } from 'expo-router';
-// import { BleManager } from 'react-native-ble-plx';
-// import { Buffer } from 'buffer';
-
-// import manager from './lib/ble'; // or './lib/BLE' depending on your structure
-
-// export default function ECGScreen() {
-//   const { id, name } = useLocalSearchParams();
-//   const router = useRouter();
-
-//   const [value, setValue] = useState('Waiting for data...');
-//   const [status, setStatus] = useState('Connecting...');
-//   const [ecgData, setEcgData] = useState([]);
-
-//   useEffect(() => {
-//     const connectAndRead = async () => {
-//       try {
-//         const device = await manager.devices([id]).then(devices => devices[0]);
-//         if (!device) {
-//           setStatus('Device not found or not connected.');
-//           return;
-//         }
-//         await device.discoverAllServicesAndCharacteristics();
-
-//         const services = await device.services();
-
-//         for (const service of services) {
-//           const characteristics = await service.characteristics();
-
-//           for (const char of characteristics) {
-//             if (char.isNotifiable) {
-//               char.monitor((error, characteristic) => {
-//                 if (error) {
-//                   console.error('Monitor error:', error);
-//                   setStatus('Monitor error.');
-//                   return;
-//                 }
-
-//                 if (characteristic?.value) {
-//                   const base64 = characteristic.value;
-//                   const buffer = Buffer.from(base64, 'base64');
-                  
-//                   // Baca isi buffer dan diubah jadi array lead 1 dan lead 2
-//                   // Indeks 0 berarti sample pertama, indeks 1 sample kedua, dst
-//                   const lead1 = [];
-//                   const lead2 = [];
-//                   for (let i = 0; i <= buffer.length - 6; i += 6){
-//                     // Gabung 3 byte buat lead 1
-//                     let valLead1 = (buffer[i] << 16) | (buffer[i+1] << 8) | buffer[i+2]
-//                     if (valLead1 & 0x800000) valLead1 |= 0xFF000000;
-                  
-//                     // Gabung 3 byte buat lead 2
-//                     let valLead2 = (buffer[i+3] << 16) | (buffer[i+4] << 8) | buffer[i+5]
-//                     if (valLead2 & 0x800000) valLead2 |= 0xFF000000;
-                    
-//                     // Masukin nilai ke array
-//                     const index = i/6;
-//                     lead1[index] = valLead1;
-//                     lead2[index] = valLead2;
-//                   }
-//                   // Buat display engga aku setup karena engga tau caranya
-
-//                   // const intValue = buffer.readInt32LE(0); // Change to readInt16LE if needed
-
-//                   setValue(intValue);
-//                   setStatus(`Receiving from ${name}`);
-//                   setEcgData(prev => [...prev.slice(-99), intValue]); // keep last 100 points
-//                 }
-//               });
-
-//               return;
-//             }
-//           }
-//         }
-
-//         setStatus('No notifiable characteristic found.');
-//       } catch (err) {
-//         console.error(err);
-//         setStatus('Connection failed.');
-//       }
-//     };
-
-//     connectAndRead();
-
-//     return () => {
-//       manager.cancelDeviceConnection(id);
-//     };
-//   }, [id]);
-
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.status}>{status}</Text>
-//       <Text style={styles.label}>Latest ECG Value:</Text>
-//       <Text style={styles.value}>{value}</Text>
-
-//       <View style={{ marginTop: 40 }}>
-//         <Button
-//           title="See Plotting"
-//           onPress={() =>
-//             router.push({
-//               pathname: '/home',
-//               params: {
-//                 id,
-//                 name,
-//               },
-//             })
-//           }
-//         />
-//       </View>
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     paddingTop: 100,
-//     alignItems: 'center',
-//     backgroundColor: '#111',
-//   },
-//   status: {
-//     color: '#fff',
-//     marginBottom: 20,
-//   },
-//   label: {
-//     fontSize: 18,
-//     color: '#ccc',
-//   },
-//   value: {
-//     fontSize: 48,
-//     fontWeight: 'bold',
-//     color: '#0f0',
-//     marginTop: 10,
-//   },
-// });
-
-// import React, { useEffect, useState } from 'react';
-// import { View, Text, StyleSheet, ScrollView } from 'react-native';
-// import { useLocalSearchParams } from 'expo-router';
-// import { BleManager } from 'react-native-ble-plx';
-// import { Buffer } from 'buffer';
-
-// const manager = new BleManager();
-
-// export default function ECGScreen() {
-//   const { id, name } = useLocalSearchParams();
-//   const [value, setValue] = useState('Waiting for data...');
-//   const [status, setStatus] = useState('Connecting...');
-
-//   useEffect(() => {
-//     const connectAndRead = async () => {
-//       try {
-//         const device = await manager.devices([id]).then(devices => devices[0]);
-//         if (!device) {
-//           setStatus('Device not found or not connected.');
-//           return;
-//         }
-//         await device.discoverAllServicesAndCharacteristics();
-
-//         await device.discoverAllServicesAndCharacteristics();
-
-//         const services = await device.services();
-
-//         for (const service of services) {
-//           const characteristics = await service.characteristics();
-
-//           for (const char of characteristics) {
-//             if (char.isNotifiable) {
-//               char.monitor((error, characteristic) => {
-//                 if (error) {
-//                   console.error('Monitor error:', error);
-//                   setStatus('Monitor error.');
-//                   return;
-//                 }
-
-//                 if (characteristic?.value) {
-//                   const base64 = characteristic.value;
-//                   const buffer = Buffer.from(base64, 'base64');
-
-//                   // Assuming 16-bit signed integer (adjust if needed)
-//                   const intValue = buffer.readInt32LE(0);
-
-//                   setValue(intValue);
-//                   setStatus(`Receiving from ${name}`);
-//                 }
-//               });
-
-//               return;
-//             }
-//           }
-//         }
-
-//         setStatus('No notifiable characteristic found.');
-//       } catch (err) {
-//         console.error(err);
-//         setStatus('Connection failed.');
-//       }
-//     };
-
-//     connectAndRead();
-
-//     return () => {
-//       manager.cancelDeviceConnection(id);
-//     };
-//   }, [id]);
-
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.status}>{status}</Text>
-//       <Text style={styles.label}>Latest ECG Value:</Text>
-//       <Text style={styles.value}>{value}</Text>
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     paddingTop: 100,
-//     alignItems: 'center',
-//     backgroundColor: '#111',
-//   },
-//   status: {
-//     color: '#fff',
-//     marginBottom: 20,
-//   },
-//   label: {
-//     fontSize: 18,
-//     color: '#ccc',
-//   },
-//   value: {
-//     fontSize: 48,
-//     fontWeight: 'bold',
-//     color: '#0f0',
-//     marginTop: 10,
-//   },
-// });
-
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Button } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { View, Text, Button, FlatList, PermissionsAndroid, Platform, Alert } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
-import { Buffer } from 'buffer';
+import { useRouter } from 'expo-router';
+
 
 import manager from './lib/ble'; // or './lib/BLE' depending on your structure
 
-export default function ECGScreen() {
-  const { id, name } = useLocalSearchParams();
-  const router = useRouter();
-
-  const [value, setValue] = useState('Waiting for data...');
-  const [status, setStatus] = useState('Connecting...');
-  const [ecgData, setEcgData] = useState([]);
+export default function App() {
+  const [devices, setDevices] = useState({});
+  const [scanning, setScanning] = useState(false);
+  const [connectedDevice, setConnectedDevice] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
-    const connectAndRead = async () => {
-      try {
-        const device = await manager.devices([id]).then(devices => devices[0]);
-        if (!device) {
-          setStatus('Device not found or not connected.');
-          return;
-        }
-        await device.discoverAllServicesAndCharacteristics();
-
-        const services = await device.services();
-
-        for (const service of services) {
-          const characteristics = await service.characteristics();
-
-          for (const char of characteristics) {
-            if (char.isNotifiable) {
-              char.monitor((error, characteristic) => {
-                if (error) {
-                  console.error('Monitor error:', error);
-                  setStatus('Monitor error.');
-                  return;
-                }
-
-                if (characteristic?.value) {
-                  const base64 = characteristic.value;
-                  const buffer = Buffer.from(base64, 'base64');
-                  const intValue = buffer.readInt32LE(0); // Change to readInt16LE if needed
-
-                  setValue(intValue);
-                  setStatus(`Receiving from ${name}`);
-                  setEcgData(prev => [...prev.slice(-99), intValue]); // keep last 100 points
-                }
-              });
-
-              return;
-            }
-          }
-        }
-
-        setStatus('No notifiable characteristic found.');
-      } catch (err) {
-        console.error(err);
-        setStatus('Connection failed.');
-      }
-    };
-
-    connectAndRead();
-
+    requestPermissions();
     return () => {
-      manager.cancelDeviceConnection(id);
+      manager.destroy();
     };
-  }, [id]);
+  }, []);
+
+  const requestPermissions = async () => {
+    if (Platform.OS === 'android') {
+      await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+      ]);
+    }
+  };
+
+  const startScan = () => {
+    setDevices({});
+    setScanning(true);
+    setConnectedDevice(null);
+    setErrorMessage(null);
+
+    manager.startDeviceScan(null, null, (error, device) => {
+      if (error) {
+        console.warn('Scan error:', error);
+        setScanning(false);
+        return;
+      }
+
+      if (device && device.name) {
+        setDevices(prev => ({ ...prev, [device.id]: device }));
+      }
+    });
+
+    setTimeout(() => {
+      manager.stopDeviceScan();
+      setScanning(false);
+    }, 5000);
+  };
+
+  const router = useRouter();
+
+  const connectToDevice = async (deviceId) => {
+    setErrorMessage(null);
+    try {
+      const device = await manager.connectToDevice(deviceId, { autoConnect: true });
+      await device.discoverAllServicesAndCharacteristics();
+  
+      setConnectedDevice(device);
+  
+      // Navigate to landing page and pass device name
+      router.push({
+        pathname: '/landing',
+        params: {
+          name: device.name || 'Unknown Device',
+          id: device.id,
+        },
+      });
+  
+    } catch (error) {
+      console.error('❌ Connection failed:', error);
+      setErrorMessage(`Connection failed: ${error.message}`);
+    }
+  };
+
+  const renderDevice = ({ item }) => (
+    <View style={{ padding: 10, borderBottomWidth: 1, borderColor: '#ccc' }}>
+      <Text>{item.name} ({item.id})</Text>
+      <Button title="Connect" onPress={() => connectToDevice(item.id)} />
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.status}>{status}</Text>
-      <Text style={styles.label}>Latest ECG Value:</Text>
-      <Text style={styles.value}>{value}</Text>
+    <View style={{ flex: 1, padding: 20 }}>
+      <Button title={scanning ? "Scanning..." : "Scan for Devices"} onPress={startScan} disabled={scanning} />
 
-      <View style={{ marginTop: 40 }}>
-        <Button
-          title="See Plotting"
-          onPress={() =>
-            router.push({
-              pathname: '/home',
-              params: {
-                id,
-                name,
-              },
-            })
-          }
-        />
-      </View>
+      {connectedDevice && (
+        <Text style={{ marginTop: 10, fontWeight: 'bold', color: 'green' }}>
+          ✅ Connected to {connectedDevice.name}
+        </Text>
+      )}
+
+      {errorMessage && (
+        <Text style={{ marginTop: 10, fontWeight: 'bold', color: 'red' }}>
+          ⚠️ {errorMessage}
+        </Text>
+      )}
+
+      <FlatList
+        data={Object.values(devices)}
+        keyExtractor={(item) => item.id}
+        renderItem={renderDevice}
+        style={{ marginTop: 20 }}
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: 100,
-    alignItems: 'center',
-    backgroundColor: '#111',
-  },
-  status: {
-    color: '#fff',
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 18,
-    color: '#ccc',
-  },
-  value: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#0f0',
-    marginTop: 10,
-  },
-});
