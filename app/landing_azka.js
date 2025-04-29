@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Button } from 'react-native';
+import { View, Text, StyleSheet, Button, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
+
 
 import manager from './lib/ble'; // or './lib/BLE' depending on your structure
 
@@ -64,9 +65,13 @@ export default function ECGScreen() {
 
                   // const intValue = buffer.readInt32LE(0); // Change to readInt16LE if needed
 
-                  setValue(intValue);
+                  // setValue(intValue);
+                  // setStatus(`Receiving from ${name}`);
+                  // setEcgData(prev => [...prev.slice(-99), intValue]); // keep last 100 points
+                  setValue(`Lead1: ${lead1[lead1.length - 1]}, Lead2: ${lead2[lead2.length - 1]}`);
                   setStatus(`Receiving from ${name}`);
-                  setEcgData(prev => [...prev.slice(-99), intValue]); // keep last 100 points
+                  setEcgData(prev => [...prev.slice(-50), { lead1, lead2 }]); // keep recent 50 frames
+
                 }
               });
 
@@ -92,15 +97,29 @@ export default function ECGScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.status}>{status}</Text>
-      <Text style={styles.label}>Latest ECG Value:</Text>
+      <Text style={styles.label}>Latest ECG Sample:</Text>
       <Text style={styles.value}>{value}</Text>
+
+      <ScrollView style={{ maxHeight: 200, marginTop: 20, width: '100%' }}>
+        {ecgData.map((frame, index) => (
+          <View key={index} style={{ paddingVertical: 4, paddingHorizontal: 16 }}>
+            <Text style={{ color: '#ccc' }}>
+              {frame.lead1.map((v, i) => `L1[${i}]=${v}`).join(' | ')}
+            </Text>
+            <Text style={{ color: '#aaa', fontSize: 12 }}>
+              {frame.lead2.map((v, i) => `L2[${i}]=${v}`).join(' | ')}
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
+
 
       <View style={{ marginTop: 40 }}>
         <Button
-          title="See Plotting"
+          title="Go to home"
           onPress={() =>
             router.push({
-              pathname: '/plot',
+              pathname: '/home',
               params: {
                 id,
                 name,

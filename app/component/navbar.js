@@ -1,25 +1,35 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 
 interface NavigationBarProps {
-  onHomePress: () => void;
+  onHomePress?: () => void;
   onPlayPress: () => void;
   onMenuPress: () => void;
 }
 
-const navbar = ({ onHomePress, onPlayPress, onMenuPress }: NavigationBarProps) => {
+const Navbar = ({ onHomePress, onPlayPress, onMenuPress }: NavigationBarProps) => {
+  const router = useRouter(); // ✅ Inside the component
+
   return (
     <View style={styles.footer}>
-      <TouchableOpacity style={styles.footerButton} onPress={onHomePress}>
+      <TouchableOpacity
+        style={styles.footerButton}
+        onPress={onHomePress || (() => router.push('/home'))} // ✅ Default navigation if no custom onHomePress passed
+      >
         <Text style={styles.footerIcon}>⌂</Text>
       </TouchableOpacity>
-      
+
       <TouchableOpacity style={styles.playButton} onPress={onPlayPress}>
+        
         <Text style={styles.playIcon}>▶</Text>
       </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.footerButton} onPress={onMenuPress}>
-        <Text style={styles.footerIcon}>☰</Text>
+
+      <TouchableOpacity
+        style={styles.footerButton}
+        onPress={onHomePress || (() => router.push('/profile'))} // ✅ Default navigation if no custom onHomePress passed
+      >
+        <Text style={styles.footerIcon}>⌂</Text>
       </TouchableOpacity>
     </View>
   );
@@ -56,4 +66,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default navbar;
+export default Navbar;

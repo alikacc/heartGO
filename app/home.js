@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -7,9 +8,13 @@ import {
   ScrollView, 
   Platform,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  Dimensions
 } from 'react-native';
 import { format } from 'date-fns';
+import { Modal } from 'react-native';
+import { Calendar } from 'react-native-calendars';
+import NavigationBar from './component/navbar';
 
 // Sample data in CSV format - in a real app this would come from a file or API
 const csvData = `timestamp,parameter,value,unit,status
@@ -86,8 +91,41 @@ const getLatestRecords = (data, date) => {
 const App = () => {
   const parsedData = parseCSV(csvData);
   const uniqueDates = getUniqueDates(parsedData);
+
+  const [calendarMonth, setCalendarMonth] = useState(selectedDate);
+  const todayString = new Date().toISOString().split('T')[0];
+
   
   const [selectedDate, setSelectedDate] = useState(uniqueDates[0]); // Default to most recent date
+  const availableDates = uniqueDates; // Dates that have data
+
+  const generateMarkedDates = () => {
+    const marks = {};
+  
+    // Mark available dates
+    availableDates.forEach(date => {
+      marks[date] = {
+        selected: date === selectedDate,
+        selectedColor: '#09f',
+        selectedTextColor: '#fff',
+        disabled: false,
+      };
+    });
+  
+    // Dim all days in month that are not available
+    const today = new Date();
+    const currentMonth = today.toISOString().substring(0, 7);
+    for (let d = 1; d <= 31; d++) {
+      const day = `${currentMonth}-${String(d).padStart(2, '0')}`;
+      if (!availableDates.includes(day)) {
+        marks[day] = { disabled: true, disableTouchEvent: true };
+      }
+    }
+  
+    return marks;
+  };
+  
+
   const [statusFilter, setStatusFilter] = useState('All');
   const [showDatePicker, setShowDatePicker] = useState(false);
   
@@ -112,6 +150,12 @@ const App = () => {
     return format(date, 'HH:mm');
   };
 
+  const goToToday = () => {
+    setCalendarMonth(todayString);
+    setSelectedDate(todayString);
+  };
+  
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
@@ -125,7 +169,7 @@ const App = () => {
       {/* Parameter Header */}
       <Text style={styles.headerText}>Parameter</Text>
       
-      {/* Date Picker */}
+      {/* Date Picker
       <View style={styles.datePickerContainer}>
         <TouchableOpacity 
           style={styles.datePickerButton}
@@ -135,10 +179,10 @@ const App = () => {
             Date: {formatDisplayDate(selectedDate)}
           </Text>
           <Text style={styles.datePickerIcon}>⌵</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         
         {/* Date Options Dropdown */}
-        {showDatePicker && (
+        {/* {showDatePicker && (
           <View style={styles.dateOptions}>
             <ScrollView style={styles.dateScroll}>
               {uniqueDates.map((date, index) => (
@@ -156,7 +200,66 @@ const App = () => {
             </ScrollView>
           </View>
         )}
+      </View> */}
+
+      <View style={{ paddingHorizontal: 15 }}>
+        <TouchableOpacity 
+          style={styles.datePickerButton}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Text style={styles.datePickerText}>
+            Date: {formatDisplayDate(selectedDate)}
+          </Text>
+          <Text style={styles.datePickerIcon}>📅</Text>
+        </TouchableOpacity>
+
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPressOut={() => setShowDatePicker(false)}
+          >
+            <View style={styles.modalContainer}>
+            <TouchableOpacity 
+              onPress={goToToday}
+              style={styles.todayButton}
+            >
+              <Text style={styles.todayButtonText}>Today</Text>
+            </TouchableOpacity>
+
+            <Calendar
+              current={calendarMonth}
+              onDayPress={(day) => {
+                if (availableDates.includes(day.dateString)) {
+                  setSelectedDate(day.dateString);
+                  setCalendarMonth(day.dateString); // 🔥 Save month state
+                  setShowDatePicker(false);
+                }
+              }}
+              onMonthChange={(month) => {
+                setCalendarMonth(`${month.year}-${String(month.month).padStart(2, '0')}-01`);
+              }}
+              markedDates={generateMarkedDates()}
+              disableAllTouchEventsForDisabledDays={true}
+              theme={{
+                todayTextColor: '#09f',
+                selectedDayBackgroundColor: '#09f',
+                selectedDayTextColor: '#fff',
+                disabledTextColor: '#ccc',
+              }}
+            />
+
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
+
+
       
       {/* Status Filters */}
       <View style={styles.filtersContainer}>
@@ -192,70 +295,70 @@ const App = () => {
       </View>
       
       {/* Parameter Boxes */}
-      <ScrollView style={styles.parametersContainer}>
-        {filteredRecords.map((record, index) => (
-          <TouchableOpacity 
-            key={index}
-            style={styles.parameterBox}
-            onPress={() => console.log(`Clicked on ${record.parameter}`)}
-          >
-            {/* Parameter Header */}
-            <View style={styles.parameterHeader}>
-              <Text style={styles.parameterTitle}>{record.parameter}</Text>
-              <Text style={styles.parameterArrow}>›</Text>
-            </View>
-            
-            {/* Parameter Value */}
-            <View style={styles.parameterValueContainer}>
-              <Text style={styles.parameterValue}>
-                {record.value} 
-                <Text style={styles.parameterUnit}> {record.unit}</Text>
-              </Text>
-              <Text style={[
-                styles.parameterStatus,
-                record.status === 'Normal' ? styles.normalStatus : styles.abnormalStatus
-              ]}>
-                {record.status}
-              </Text>
-            </View>
-            
-            {/* Parameter History */}
-            <View style={styles.historyContainer}>
-              {record.history.map((item, historyIndex) => (
-                <Text key={historyIndex} style={styles.historyItem}>
-                  • {item.value} {item.unit}, {formatTime(item.timestamp)}
-                </Text>
-              ))}
-            </View>
-            
-            {/* Extra Info for QRS Duration */}
-            {record.parameter === 'QRS Duration' && record.status === 'Abnormal' && (
-              <View style={styles.infoBox}>
-                <Text style={styles.infoTitle}>QRS duration is prolonged</Text>
-                <Text style={styles.infoText}>which may indicate conduction delay</Text>
+      {/* Fixed ScrollView with contentContainerStyle for proper layout */}
+      <ScrollView 
+        style={styles.parametersContainer}
+        contentContainerStyle={styles.parametersContentContainer}
+      >
+        {Object.values(latestRecords)
+          .filter(record => {
+            if (statusFilter === 'All') return true;
+            return record.status === statusFilter;
+          })
+          .map((record, index) => (
+            <TouchableOpacity 
+              key={index}
+              style={styles.parameterBox}
+              onPress={() => console.log(`Clicked on ${record.parameter}`)}
+            >
+              {/* Parameter Header */}
+              <View style={styles.parameterHeader}>
+                <Text style={styles.parameterTitle}>{record.parameter}</Text>
+                <Text style={styles.parameterArrow}>›</Text>
               </View>
-            )}
-          </TouchableOpacity>
-        ))}
+              
+              {/* Parameter Value */}
+              <View style={styles.parameterValueContainer}>
+                <Text style={styles.parameterValue}>
+                  {record.value} 
+                  <Text style={styles.parameterUnit}> {record.unit}</Text>
+                </Text>
+                <Text style={[
+                  styles.parameterStatus,
+                  record.status === 'Normal' ? styles.normalStatus : styles.abnormalStatus
+                ]}>
+                  {record.status}
+                </Text>
+              </View>
+              
+              {/* Parameter History */}
+              <View style={styles.historyContainer}>
+                {record.history.map((item, historyIndex) => (
+                  <Text key={historyIndex} style={styles.historyItem}>
+                    • {item.value} {item.unit}, {formatTime(item.timestamp)}
+                  </Text>
+                ))}
+              </View>
+              
+              {/* Extra Info for QRS Duration */}
+              {record.parameter === 'QRS Duration' && record.status === 'Abnormal' && (
+                <View style={styles.infoBox}>
+                  <Text style={styles.infoTitle}>QRS duration is prolonged</Text>
+                  <Text style={styles.infoText}>which may indicate conduction delay</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
       </ScrollView>
-      
-      {/* Footer Navigation */}
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.footerButton}>
-          <Text style={styles.footerIcon}>⌂</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.playButton}>
-          <Text style={styles.playIcon}>▶</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.footerButton}>
-          <Text style={styles.footerIcon}>☰</Text>
-        </TouchableOpacity>
-      </View>
+
+      <NavigationBar/>
     </SafeAreaView>
   );
 };
+
+const windowWidth = Dimensions.get('window').width;
+const boxWidth = (windowWidth - 40) / 2; // 40 is the total horizontal padding
+
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -267,6 +370,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 10,
     alignItems: 'center',
+    marginTop: -20,
   },
   connectionText: {
     fontSize: 14,
@@ -356,7 +460,13 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 10,
   },
+  parametersContentContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
   parameterBox: {
+    width: boxWidth,
     backgroundColor: '#FFF',
     borderRadius: 10,
     padding: 15,
@@ -384,8 +494,7 @@ const styles = StyleSheet.create({
   },
   parameterValueContainer: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 10,
+    flexWrap: 'wrap',
   },
   parameterValue: {
     fontSize: 28,
@@ -430,34 +539,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#09f',
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    padding: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#EEE',
-    backgroundColor: '#FFF',
-  },
-  footerButton: {
-    padding: 10,
-  },
-  footerIcon: {
-    fontSize: 24,
-    color: '#333',
-  },
-  playButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#09f',
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  playIcon: {
-    fontSize: 30,
-    color: '#FFF',
+  modalContainer: {
+    width: '90%',
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    padding: 10,
+    elevation: 10,
+  },  
+  todayButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#09f',
+    borderRadius: 8,
   },
+  todayButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },  
 });
 
 export default App;
