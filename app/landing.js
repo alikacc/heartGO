@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Button, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Button, ScrollView , Platform} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
@@ -24,6 +24,14 @@ export default function ECGScreen() {
           return;
         }
         await device.discoverAllServicesAndCharacteristics();
+        if (Platform.OS === 'android') {
+          try {
+            const mtu = await device.requestMTU(247);
+            console.log('Requested MTU:', mtu);
+          } catch (e) {
+            console.warn('MTU request failed:', e);
+          }
+        }
 
         const services = await device.services();
 

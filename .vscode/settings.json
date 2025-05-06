@@ -1,0 +1,9 @@
+{
+    "java.project.import.excludes": [
+        "node_modules/**"
+    ],
+    "files.watcherExclude": {
+        "**/node_modules/*/**": true
+    },
+    "git.enabled": false
+}

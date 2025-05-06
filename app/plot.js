@@ -1,108 +1,97 @@
-// import React, { useEffect, useState } from 'react';
-// import { View, Text, Dimensions, StyleSheet } from 'react-native';
-// import { useLocalSearchParams } from 'expo-router';
-// import { BleManager } from 'react-native-ble-plx';
-// import { LineChart } from 'react-native-chart-kit';
-// import { Buffer } from 'buffer';
-// import LinearGradient from 'react-native-linear-gradient';
+// import React, { useState } from "react";
+// import { View, useColorScheme } from "react-native";
+// import {
+//   CartesianChart,
+//   Line,
+//   Area,
+//   useChartPressState,
+// } from "victory-native";
+// import {
+//   Circle,
+//   LinearGradient,
+//   Text as SKText,
+//   vec,
+// } from "@shopify/react-native-skia";
+// import { useDerivedValue, type SharedValue } from "react-native-reanimated";
 
-// import manager from './lib/ble'; // or './lib/BLE' depending on your structure
+// // Inline data
+// const DATA = Array.from({ length: 31 }, (_, i) => ({
+//   day: i,
+//   highTmp: 40 + 30 * Math.random(),
+// }));
 
-// export default function PlotScreen() {
-//   const { id, name } = useLocalSearchParams();
-//   const [dataPoints, setDataPoints] = useState([]);
-//   const [status, setStatus] = useState('Connecting...');
+// const DATA2 = Array.from({ length: 31 }, (_, i) => ({
+//   day: i,
+//   highTmp: 40 + 10 * Math.random(),
+// }));
 
-//   useEffect(() => {
-//     const connectAndStream = async () => {
-//       try {
-//         const device = await manager.devices([id]).then(devices => devices[0]);
-//         if (!device) {
-//           setStatus('Device not found.');
-//           return;
-//         }
+// export const LineChart = () => {
+//   const { state, isActive } = useChartPressState({ x: 0, y: { highTmp: 0 } });
+//   const colorMode = useColorScheme();
+//   const [chartData, setChartData] = useState(DATA);
 
-//         await device.discoverAllServicesAndCharacteristics();
-//         const services = await device.services();
+//   const value = useDerivedValue(() => {
+//     return "$" + state.y.highTmp.value.value.toFixed(2);
+//   }, [state]);
 
-//         for (const service of services) {
-//           const characteristics = await service.characteristics();
-
-//           for (const char of characteristics) {
-//             if (char.isNotifiable) {
-//               char.monitor((error, characteristic) => {
-//                 if (error) {
-//                   console.error(error);
-//                   setStatus('Monitor error.');
-//                   return;
-//                 }
-
-//                 if (characteristic?.value) {
-//                   const base64 = characteristic.value;
-//                   const buffer = Buffer.from(base64, 'base64');
-//                   const intValue = buffer.readInt32LE(0); 
-//                   setDataPoints(prev => [...prev.slice(-99), intValue]); 
-//                   setStatus(`Plotting from ${name}`);
-//                 }
-//               });
-//               return;
-//             }
-//           }
-//         }
-
-//         setStatus('No notifiable characteristic.');
-//       } catch (err) {
-//         console.error(err);
-//         setStatus('Connection failed.');
-//       }
-//     };
-
-//     connectAndStream();
-
-//     return () => {
-//       manager.cancelDeviceConnection(id);
-//     };
-//   }, [id]);
+//   const labelColor = colorMode === "dark" ? "white" : "black";
 
 //   return (
-//     <View style={styles.container}>
-//       <Text style={styles.status}>{status}</Text>
-//       <LineChart
-//         data={{
-//           datasets: [{ data: dataPoints }],
-//         }}
-//         width={Dimensions.get('window').width - 20}
-//         height={220}
-//         withDots={false}
-//         withInnerLines={false}
-//         withOuterLines={false}
-//         withVerticalLabels={false}
-//         withHorizontalLabels={false}
-//         chartConfig={{
-//           backgroundColor: '#000',
-//           backgroundGradientFrom: '#000',
-//           backgroundGradientTo: '#000',
-//           decimalPlaces: 0,
-//           color: () => `#00FF00`,
-//         }}
-//         style={styles.chart}
-//       />
+//     <View
+//       style={{
+//         flex: 1,
+//         backgroundColor: colorMode === "dark" ? "#000" : "#fff",
+//         alignItems: "center",
+//         paddingHorizontal: 10,
+//         paddingVertical: 30,
+//       }}
+//     >
+//       <View style={{ width: "95%", height: "60%", paddingTop: 10 }}>
+//         <CartesianChart
+//           data={chartData}
+//           xKey="day"
+//           yKeys={["highTmp"]}
+//           domainPadding={{ top: 30 }}
+//           chartPressState={state}
+//         >
+//           {({ points, chartBounds }) => (
+//             <>
+//               <SKText
+//                 x={chartBounds.left + 10}
+//                 y={40}
+//                 text={value.value}
+//                 size={18}
+//                 color={labelColor}
+//                 style="fill"
+//               />
+//               <Line
+//                 points={points.highTmp}
+//                 color="lightgreen"
+//                 strokeWidth={3}
+//                 animate={{ type: "timing", duration: 500 }}
+//               />
+//               <Area
+//                 points={points.highTmp}
+//                 y0={chartBounds.bottom}
+//                 animate={{ type: "timing", duration: 500 }}
+//               >
+//                 <LinearGradient
+//                   start={vec(chartBounds.bottom, 200)}
+//                   end={vec(chartBounds.bottom, chartBounds.bottom)}
+//                   colors={["green", "#90ee9050"]}
+//                 />
+//               </Area>
+//               {isActive && (
+//                 <ToolTip x={state.x.position} y={state.y.highTmp.position} />
+//               )}
+//             </>
+//           )}
+//         </CartesianChart>
+//       </View>
 //     </View>
 //   );
-// }
+// };
 
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: '#000',
-//     paddingTop: 60,
-//     alignItems: 'center',
-//   },
-//   status: {
-//     color: '#fff',
-//     marginBottom: 10,
-//   },
-//   chart: {
-//     borderRadius: 8,
-//   },
-// });
+// function ToolTip({ x, y }: { x: SharedValue<number>; y: SharedValue<number> }) {
+//   return <Circle cx={x} cy={y} r={8} color="grey" opacity={0.8} />;
+// }

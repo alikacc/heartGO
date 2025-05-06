@@ -562,6 +562,7 @@ import { View } from 'react-native';
 import ScanDevice from './scan_device'; 
 import Landing from './landing'; 
 import Home from './home'; 
+// import Plot from './plot'; 
 import Profile from './profile'; 
 import IdentityChoose from './identity_choose'; 
 // import LandingAzka from './landing_azka/LandingAzka';
@@ -570,7 +571,7 @@ import IdentityChoose from './identity_choose';
 export default function App() {
   return (
     <View style={{ flex: 1 }}>
-      <Home/>
+      <ScanDevice/>
     </View>
   );
 }
