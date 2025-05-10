@@ -1,35 +1,42 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 interface NavigationBarProps {
   onHomePress?: () => void;
   onPlayPress: () => void;
-  onMenuPress: () => void;
+  onStatsPress?: () => void;
 }
 
-const Navbar = ({ onHomePress, onPlayPress, onMenuPress }: NavigationBarProps) => {
-  const router = useRouter(); // ✅ Inside the component
+const NavigationBar: React.FC<NavigationBarProps> = ({
+  onHomePress,
+  onPlayPress,
+  onStatsPress,
+}) => {
+  const router = useRouter();
 
   return (
     <View style={styles.footer}>
+      {/* Home Button */}
       <TouchableOpacity
         style={styles.footerButton}
-        onPress={onHomePress || (() => router.push('/home'))} // ✅ Default navigation if no custom onHomePress passed
+        onPress={onHomePress ?? (() => router.push('/home'))}
       >
-        <Text style={styles.footerIcon}>⌂</Text>
+        <Ionicons name="home-outline" size={28} color="#333" />
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.playButton} onPress={onPlayPress}>
-        
-        <Text style={styles.playIcon}>▶</Text>
+      {/* Play Button */}
+      <TouchableOpacity style={styles.playButton} onPress={onPlayPress ?? (() => router.push('/play'))}>
+        <Ionicons name="play" size={32} color="#fff" />
       </TouchableOpacity>
 
+      {/* Stats Button */}
       <TouchableOpacity
         style={styles.footerButton}
-        onPress={onHomePress || (() => router.push('/profile'))} // ✅ Default navigation if no custom onHomePress passed
+        onPress={onStatsPress ?? (() => router.push('/plot'))}
       >
-        <Text style={styles.footerIcon}>⌂</Text>
+        <Ionicons name="stats-chart-outline" size={28} color="#333" />
       </TouchableOpacity>
     </View>
   );
@@ -40,30 +47,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    padding: 15,
     borderTopWidth: 1,
     borderTopColor: '#EEE',
     backgroundColor: '#FFF',
+    paddingVertical: 10,
   },
   footerButton: {
-    padding: 10,
-  },
-  footerIcon: {
-    fontSize: 24,
-    color: '#333',
+    flex: 1,
+    alignItems: 'center',
   },
   playButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#09f',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  playIcon: {
-    fontSize: 30,
-    color: '#FFF',
+    marginHorizontal: 10,
   },
 });
 
-export default Navbar;
+export default NavigationBar;

@@ -165,7 +165,7 @@
 
 // ECGScreen.tsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -190,6 +190,8 @@ export default function ECGScreen() {
   const [value, setValue] = useState('Waiting for data...');
   const [status, setStatus] = useState('Connecting...');
   const [ecgData, setEcgData] = useState([]);
+  const subscriptionRef = useRef(null);
+  const characteristicRef = useRef(null);
 
   // connect, monitor and parse
   useEffect(() => {
@@ -212,48 +214,7 @@ export default function ECGScreen() {
         for (const service of services) {
           for (const char of await service.characteristics()) {
             if (char.isNotifiable) {
-              subscription = char.monitor((err, characteristic) => {
-                if (err) {
-                  setStatus('Monitor error.');
-                  return;
-                }
-                if (!characteristic?.value) return;
-
-                const buffer = Buffer.from(characteristic.value, 'base64');
-                const lead1: number[] = [];
-                const lead2: number[] = [];
-                for (let i = 0; i + 5 < buffer.length; i += 6) {
-                  let v1 =
-                    (buffer[i] << 16) |
-                    (buffer[i + 1] << 8) |
-                    buffer[i + 2];
-                  let v2 =
-                    (buffer[i + 3] << 16) |
-                    (buffer[i + 4] << 8) |
-                    buffer[i + 5];
-
-                  lead1.push(v1);
-                  lead2.push(v2);
-                }
-
-                // display latest sample in HEX
-                const hex1 =
-                  '0x' +
-                  (lead1[lead1.length - 1] & 0xffffff)
-                    .toString(16)
-                    .padStart(6, '0');
-                const hex2 =
-                  '0x' +
-                  (lead2[lead2.length - 1] & 0xffffff)
-                    .toString(16)
-                    .padStart(6, '0');
-                setValue(`Lead1: ${hex1}, Lead2: ${hex2}`);
-                setStatus(`Receiving from ${name}`);
-                setEcgData((prev) => [
-                  ...prev.slice(-49),
-                  { lead1, lead2 },
-                ]);
-              });
+              characteristicRef.current = char;
               return;
             }
           }
@@ -265,12 +226,62 @@ export default function ECGScreen() {
     })();
 
     return () => {
-      subscription?.remove();
+      subscriptionRef.current?.remove();
       manager.cancelDeviceConnection(id);
     };
   }, [id]);
 
-  // export to txt and share
+  const startNotify = () => {
+    const char = characteristicRef.current;
+    if (!char) {
+      Alert.alert('No notifiable characteristic found');
+      return;
+    }
+    // attach the monitor only when the user presses “Start”
+    subscriptionRef.current = char.monitor((err, c) => {
+      if (err) {
+        setStatus('Monitor error');
+        return;
+      }
+      // your parsing logic…
+      const buffer = Buffer.from(c.value, 'base64');
+      const lead1: number[] = [];
+      const lead2: number[] = [];
+      for (let i = 0; i + 5 < buffer.length; i += 6) {
+        let v1 =
+          (buffer[i] << 16) |
+          (buffer[i + 1] << 8) |
+          buffer[i + 2];
+        let v2 =
+          (buffer[i + 3] << 16) |
+          (buffer[i + 4] << 8) |
+          buffer[i + 5];
+        
+        let max = 0xC35000;
+        let res1 = ((2 * v1 / max) - 1) * (2.4/3.5);
+        let res2 = ((2 * v2 / max) - 1) * (2.4/3.5);
+        lead1.push(res1);
+        lead2.push(res2);
+      }
+
+      // display latest sample in HEX
+      const int1 = lead1[lead1.length - 1] * 1000;
+      const int2 = lead2[lead2.length - 1] * 1000;
+      //   '0x' +
+      //   (lead2[lead2.length - 1] & 0xffffff)
+      //     .toString(16)
+      //     .padStart(6, '0');
+      setValue(`Lead1: ${int1}, Lead2: ${int2} `);
+      setStatus(`Receiving from ${name}`);
+      setEcgData(prev => [...prev.slice(-50), { lead1, lead2 }]);
+    });
+    setStatus('Notifications started');
+  };
+  
+  const disconnect = async () => {
+    await manager.cancelDeviceConnection(id);
+  };
+  
   const exportData = async () => {
     if (ecgData.length === 0) {
       Alert.alert('No data to export');
@@ -357,6 +368,9 @@ export default function ECGScreen() {
             router.push({ pathname: '/home', params: { id, name } })
           }
         />
+        <Button title="Send Message" onPress={disconnect} />
+        <View style={{ height: 12 }} />
+        <Button title="Start" onPress={startNotify} />
       </View>
     </View>
   );

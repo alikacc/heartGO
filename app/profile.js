@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { format } from 'date-fns';
+import Header from './component/header';
 
 const Profile = () => {
   const router = useRouter();
@@ -35,92 +36,88 @@ const Profile = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header with back button */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
+    <View style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
+      <Header title="Profile" />
+      <SafeAreaView style={styles.container}>
+
+        {/* Profile avatar & info */}
+        <View style={styles.profileHeader}>
+          <View style={styles.avatarContainer}>
+            <Text style={styles.avatarText}>WE</Text>
+          </View>
+          <Text style={styles.ownerLabel}>OWNER</Text>
+          <Text style={styles.userName}>Willem Einthoven</Text>
+          <View style={styles.accessCodeContainer}>
+            <Text style={styles.accessCodeText}>ACCESS CODE: TA2425015</Text>
+          </View>
+        </View>
+        
+        {/* Profile details */}
+        <View style={styles.detailsContainer}>
+          {/* Email field */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Email</Text>
+            <View style={styles.fieldContent}>
+              <Text style={styles.fieldValue}>willem1234@gmail.com</Text>
+            </View>
+          </View>
+          
+          {/* Password field */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Password</Text>
+            <View style={styles.fieldContent}>
+              <Text style={styles.fieldValue}>•••</Text>
+              <TouchableOpacity style={styles.editButton}>
+                <Text style={styles.editIcon}>✎</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          {/* Gender field */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Gender</Text>
+            <View style={styles.fieldContent}>
+              <Text style={styles.fieldValue}>{userData.gender}</Text>
+            </View>
+          </View>
+          
+          {/* Birthdate field */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Birthdate</Text>
+            <View style={styles.fieldContent}>
+              <Text style={styles.fieldValue}>{formattedBirthdate}</Text>
+            </View>
+          </View>
+          
+          {/* Height field */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Height</Text>
+            <View style={styles.fieldContent}>
+              <Text style={styles.fieldValue}>{userData.height} cm</Text>
+              <TouchableOpacity style={styles.editButton}>
+                <Text style={styles.editIcon}>✎</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          {/* Weight field */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Weight</Text>
+            <View style={styles.fieldContent}>
+              <Text style={styles.fieldValue}>{userData.weight} kg</Text>
+              <TouchableOpacity style={styles.editButton}>
+                <Text style={styles.editIcon}>✎</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+        
+        {/* Logout button */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
-      </View>
-      
-      {/* Profile avatar & info */}
-      <View style={styles.profileHeader}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>WE</Text>
-        </View>
-        <Text style={styles.ownerLabel}>OWNER</Text>
-        <Text style={styles.userName}>Willem Einthoven</Text>
-        <View style={styles.accessCodeContainer}>
-          <Text style={styles.accessCodeText}>ACCESS CODE: TA2425015</Text>
-        </View>
-      </View>
-      
-      {/* Profile details */}
-      <View style={styles.detailsContainer}>
-        {/* Email field */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Email</Text>
-          <View style={styles.fieldContent}>
-            <Text style={styles.fieldValue}>willem1234@gmail.com</Text>
-          </View>
-        </View>
-        
-        {/* Password field */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Password</Text>
-          <View style={styles.fieldContent}>
-            <Text style={styles.fieldValue}>•••</Text>
-            <TouchableOpacity style={styles.editButton}>
-              <Text style={styles.editIcon}>✎</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        {/* Gender field */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Gender</Text>
-          <View style={styles.fieldContent}>
-            <Text style={styles.fieldValue}>{userData.gender}</Text>
-          </View>
-        </View>
-        
-        {/* Birthdate field */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Birthdate</Text>
-          <View style={styles.fieldContent}>
-            <Text style={styles.fieldValue}>{formattedBirthdate}</Text>
-          </View>
-        </View>
-        
-        {/* Height field */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Height</Text>
-          <View style={styles.fieldContent}>
-            <Text style={styles.fieldValue}>{userData.height} cm</Text>
-            <TouchableOpacity style={styles.editButton}>
-              <Text style={styles.editIcon}>✎</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        {/* Weight field */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Weight</Text>
-          <View style={styles.fieldContent}>
-            <Text style={styles.fieldValue}>{userData.weight} kg</Text>
-            <TouchableOpacity style={styles.editButton}>
-              <Text style={styles.editIcon}>✎</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-      
-      {/* Logout button */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Log Out</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 };
 
@@ -130,22 +127,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 20,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  backButton: {
-    padding: 10,
-  },
-  backIcon: {
-    fontSize: 24,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginLeft: 10,
   },
   profileHeader: {
     alignItems: 'center',
