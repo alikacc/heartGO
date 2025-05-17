@@ -27,14 +27,14 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
       </TouchableOpacity>
 
       {/* Play Button */}
-      <TouchableOpacity style={styles.playButton} onPress={onPlayPress ?? (() => router.push('/play'))}>
+      <TouchableOpacity style={styles.playButton} onPress={onPlayPress ?? (() => router.push('/scan_device'))}>
         <Ionicons name="play" size={32} color="#fff" />
       </TouchableOpacity>
 
       {/* Stats Button */}
       <TouchableOpacity
         style={styles.footerButton}
-        onPress={onStatsPress ?? (() => router.push('/plot'))}
+        onPress={onStatsPress ?? (() => router.push('/historical'))}
       >
         <Ionicons name="stats-chart-outline" size={28} color="#333" />
       </TouchableOpacity>

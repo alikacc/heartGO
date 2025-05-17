@@ -1,324 +1,258 @@
-// PlotScreen.tsx
+// import React from 'react'
+// import {
+//   View,
+//   Text,
+//   StyleSheet,
+//   Dimensions,
+//   ScrollView
+// } from 'react-native'
+// import Svg, { Line, Path } from 'react-native-svg'
+// import ecgData from './ecg.json'
 
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  useColorScheme,
-  StatusBar,
-  SafeAreaView,
-  Platform,
-} from "react-native";
-import {
-  CartesianChart,
-  Line,
-  Area,
-  useChartPressState,
-} from "victory-native";
-import { Circle, LinearGradient, vec } from "@shopify/react-native-skia";
-import NavigationBar from "./component/navbar";
-import {
-  useDerivedValue,
-  useAnimatedReaction,
-  runOnJS,
-  type SharedValue,
-} from "react-native-reanimated";
-import Header from './component/header';
+// /** ECG paper specs **/
+// const SMALL_SQ      = 8     // 1 mm = 8 px
+// const LARGE_EVERY   = 5     // darker line every 5 mm
+// const MM_PER_MV     = 10    // 10 mm per 1 mV vertically
+// const MM_PER_SEC    = 25    // 25 mm per 1 s horizontally
+// const SAMPLING_RATE = 320   // Hz
 
-const DATA = Array.from({ length: 20 }, (_, i) => ({
-  day: i,
-  highTmp: 60 + Math.random() * 80,
-}));
+// export default function ECGWithGrid({ data = ecgData }) {
+//   if (!Array.isArray(data) || data.length === 0) {
+//     return (
+//       <View style={styles.container}>
+//         <Text style={styles.placeholder}>
+//           No ECG data to display
+//         </Text>
+//       </View>
+//     )
+//   }
 
-export default function PlotScreen() {
-  // — chart press + derived bpm —
-  const { state, isActive } = useChartPressState({ x: 0, y: { highTmp: 0 } });
-  const [bpm, setBpm] = useState(DATA[DATA.length - 1].highTmp.toFixed(0));
-  const value = useDerivedValue(
-    () => state.y.highTmp.value.value.toFixed(0),
-    [state]
-  );
-  useAnimatedReaction(
-    () => value.value,
-    (cur, prev) => {
-      if (cur !== prev) runOnJS(setBpm)(cur);
+//   // screen dimensions
+//   const { width: screenW, height: H } = Dimensions.get('window')
+
+//   // horizontal scale: px per second
+//   const pxPerSec = MM_PER_SEC * SMALL_SQ
+
+//   // how many seconds fit per “page”?
+//   const secsPerPage = screenW / pxPerSec
+
+//   // total duration of recording
+//   const totalSecs = (data.length - 1) / SAMPLING_RATE
+
+//   // how many pages?
+//   const pages = Math.ceil(totalSecs / secsPerPage)
+
+//   // vertical scale
+//   const pxPerMv   = MM_PER_MV * SMALL_SQ
+//   const baselineY = H / 2
+
+//   // grid line counts for each page
+//   const vCount = Math.ceil(screenW / SMALL_SQ)
+//   const hCount = Math.ceil(H / SMALL_SQ)
+
+//   return (
+//     <View style={styles.container}>
+//       <ScrollView
+//         horizontal
+//         pagingEnabled
+//         showsHorizontalScrollIndicator={false}
+//         style={{ flex: 1 }}
+//         contentContainerStyle={{ height: H }}
+//       >
+//         {Array.from({ length: pages }).map((_, pageIndex) => {
+//           // start/end times for this page
+//           const t0 = pageIndex * secsPerPage
+//           const t1 = t0 + secsPerPage
+
+//           // build path only for points in [t0, t1]
+//           const pathData = data
+//             .map((pt, i) => {
+//               const tSec = pt.Time / SAMPLING_RATE
+//               if (tSec < t0 || tSec > t1) return null
+//               const x = (tSec - t0) * pxPerSec
+//               const y = baselineY - (pt.ECG_Lead1 * 1000) * pxPerMv
+//               return `${pathData == null && i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+//             })
+//             .filter(Boolean)
+//             .map((cmd, i) => (i === 0 ? cmd.replace(/^L/, 'M') : cmd))
+//             .join(' ')
+
+//           return (
+//             <Svg
+//               key={pageIndex}
+//               width={screenW}
+//               height={H}
+//             >
+//               {/* vertical grid */}
+//               {Array.from({ length: vCount }).map((_, i) => {
+//                 const x = i * SMALL_SQ
+//                 const major = i % LARGE_EVERY === 0
+//                 return (
+//                   <Line
+//                     key={`v${pageIndex}-${i}`}
+//                     x1={x} y1={0}
+//                     x2={x} y2={H}
+//                     stroke={major ? '#bbb' : '#eee'}
+//                     strokeWidth={major ? 1 : 0.5}
+//                   />
+//                 )
+//               })}
+//               {/* horizontal grid */}
+//               {Array.from({ length: hCount }).map((_, i) => {
+//                 const y = i * SMALL_SQ
+//                 const major = i % LARGE_EVERY === 0
+//                 return (
+//                   <Line
+//                     key={`h${pageIndex}-${i}`}
+//                     x1={0} y1={y}
+//                     x2={screenW} y2={y}
+//                     stroke={major ? '#bbb' : '#eee'}
+//                     strokeWidth={major ? 1 : 0.5}
+//                   />
+//                 )
+//               })}
+//               {/* ECG trace */}
+//               <Path
+//                 d={pathData}
+//                 fill="none"
+//                 stroke="grey"
+//                 strokeWidth={1}
+//               />
+//             </Svg>
+//           )
+//         })}
+//       </ScrollView>
+//     </View>
+//   )
+// }
+
+// const styles = StyleSheet.create({
+//   container: {
+//     flex: 1,
+//     backgroundColor: '#fff',
+//   },
+//   placeholder: {
+//     color: '#999',
+//     fontStyle: 'italic',
+//     textAlign: 'center',
+//     marginTop: 20,
+//   },
+// })
+
+import React from 'react'
+import { View, Button, Dimensions, StyleSheet } from 'react-native'
+import * as Print from 'expo-print'
+import { shareAsync } from 'expo-sharing'
+import ecgData from './ecg.json'  // your pre-converted JSON
+
+/** ECG paper specs **/
+const SMALL_SQ      = 8    // 1 mm = 8 px
+const LARGE_EVERY   = 5    // darker line every 5 mm
+const MM_PER_MV     = 10   // 10 mm per 1 mV vertically
+const MM_PER_SEC    = 25   // 25 mm per 1 s horizontally
+const SAMPLING_RATE = 320  // Hz
+
+export default function ECGReportScreen() {
+  // screen dims
+  const { width: screenW, height: screenH } = Dimensions.get('window')
+
+  // compute total duration & pixel width
+  const totalSecs  = (ecgData.length - 1) / SAMPLING_RATE
+  const pxPerSec   = MM_PER_SEC * SMALL_SQ       // px per second
+  const widthPx    = totalSecs * pxPerSec
+  const heightPx   = screenH                     // use screen height for SVG
+
+  // build grid lines array
+  const gridLines = []
+  const vCount = Math.ceil(widthPx  / SMALL_SQ)
+  const hCount = Math.ceil(heightPx / SMALL_SQ)
+
+  for (let i = 0; i < vCount; i++) {
+    const x     = i * SMALL_SQ
+    const major = i % LARGE_EVERY === 0
+    gridLines.push({ x1: x, y1: 0, x2: x, y2: heightPx, major })
+  }
+  for (let j = 0; j < hCount; j++) {
+    const y     = j * SMALL_SQ
+    const major = j % LARGE_EVERY === 0
+    gridLines.push({ x1: 0, y1: y, x2: widthPx, y2: y, major })
+  }
+
+  // build ECG path string
+  const pxPerMv   = MM_PER_MV * SMALL_SQ          // px per mV
+  const baselineY = heightPx / 2                  // vertical center
+  const pathData  = ecgData.map((pt, i) => {
+    const tSec = pt.Time / SAMPLING_RATE
+    const x    = tSec * pxPerSec
+    const y    = baselineY - (pt.ECG_Lead1 * 1000) * pxPerMv
+    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+
+  // generate the full HTML + SVG string
+  const html = `
+  <html>
+    <head>
+      <meta name="viewport" content="width=${widthPx}, height=${heightPx}" />
+      <style>
+        body { margin: 0; padding: 0; }
+        .header {
+          font-family: sans-serif;
+          font-size: 14px;
+          text-align: center;
+          margin-top: 8px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        Enhanced Filter · Mains Filter: 50 Hz · Scale: 25 mm/s, 10 mm/mV
+      </div>
+      <svg width="${widthPx}" height="${heightPx}" xmlns="http://www.w3.org/2000/svg">
+        ${gridLines.map(line => `
+          <line
+            x1="${line.x1}" y1="${line.y1}"
+            x2="${line.x2}" y2="${line.y2}"
+            stroke="${line.major ? '#bbb' : '#eee'}"
+            stroke-width="${line.major ? 1 : 0.5}"
+          />
+        `).join('')}
+        <path d="${pathData}"
+              fill="none"
+              stroke="black"
+              stroke-width="1.2"
+        />
+      </svg>
+    </body>
+  </html>`
+
+  // trigger PDF generation & share
+  const handlePrint = async () => {
+    try {
+      const { uri } = await Print.printToFileAsync({ html })
+      await shareAsync(uri, {
+        mimeType: 'application/pdf',
+        UTI: 'com.adobe.pdf',
+      })
+    } catch (err) {
+      console.error('Error generating PDF', err)
     }
-  );
-
-  // — static date/time for demo —
-  const [startDate] = useState("14 Juni 2024");
-  const [endDate] = useState("14 Juni 2024");
-  const [lastTime] = useState("13:00 PM");
-
-  // — theme colors —
-  const colorMode = useColorScheme();
-  const textColor = colorMode === "dark" ? "#fff" : "#000";
-  const bgColor = colorMode === "dark" ? "#000" : "#f5f7fa";
-
-  // — compute axis ticks & domain —
-  const yVals = DATA.map((d) => d.highTmp);
-  const yMin = Math.min(...yVals);
-  const yMax = Math.max(...yVals);
-  const yCount = 5;
-  const yStep = (yMax - yMin) / (yCount - 1);
-  const yTicks = Array.from({ length: yCount }, (_, i) =>
-    Math.round(yMin + yStep * i)
-  ).reverse();
-
-  const xCount = 5;
-  const xStep = Math.floor((DATA.length - 1) / (xCount - 1));
-  const xTicks = Array.from({ length: xCount }, (_, i) =>
-    DATA[Math.min(i * xStep, DATA.length - 1)].day
-  );
-
-  // — dimensions —
-  const { width } = Dimensions.get("window");
-  const chartHeight = 240;
-  const yAxisWidth = 40;
-  const chartWidth = width - 40 - yAxisWidth;
+  }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
-      <Header title="Profile" />
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: bgColor,
-            paddingTop:
-              Platform.OS === "android" ? StatusBar.currentHeight : 0,
-          },
-        ]}
-      >
-        <View style={styles.container}>
-          {/* Title */}
-          <Text style={[styles.header, { color: textColor }]}>
-            Heart Rate
-          </Text>
-
-          {/* Date Pickers */}
-          <View style={styles.dateRow}>
-            <TouchableOpacity style={styles.dateButton}>
-              <Text style={styles.dateLabel}>Start Date</Text>
-              <Text style={[styles.dateValue, { color: textColor }]}>
-                {startDate}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.dateButton}>
-              <Text style={styles.dateLabel}>End Date</Text>
-              <Text style={[styles.dateValue, { color: textColor }]}>
-                {endDate} ⌄
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Chart + Axes */}
-          <View style={styles.chartWrapper}>
-            {/* Y‐axis labels */}
-            <View style={styles.yAxis}>
-              {yTicks.map((y, i) => (
-                <Text
-                  key={i}
-                  style={[styles.axisLabel, { color: textColor }]}
-                >
-                  {y}
-                </Text>
-              ))}
-            </View>
-
-            {/* Plot + X‐axis */}
-            <View style={styles.plotAndXAxis}>
-              <View style={styles.chartContainer}>
-                {/* manual grid */}
-                <View style={styles.gridOverlay}>
-                  {yTicks.map((_, i) => (
-                    <View
-                      key={"h" + i}
-                      style={{
-                        position: "absolute",
-                        top: (i * chartHeight) / (yTicks.length - 1),
-                        left: 0,
-                        right: 0,
-                        borderTopWidth: 1,
-                        borderTopColor: "#ccc",
-                      }}
-                    />
-                  ))}
-                  {xTicks.map((_, i) => (
-                    <View
-                      key={"v" + i}
-                      style={{
-                        position: "absolute",
-                        left: (i * chartWidth) / (xTicks.length - 1),
-                        top: 0,
-                        bottom: 0,
-                        borderLeftWidth: 1,
-                        borderLeftColor: "#ccc",
-                      }}
-                    />
-                  ))}
-                </View>
-
-                {/* Victory chart with exact Y‐domain */}
-                <CartesianChart
-                  data={DATA}
-                  xKey="day"
-                  yKeys={["highTmp"]}
-                  domain={{ y: [yMin, yMax] }}           // ← force full domain
-                  chartPressState={state}
-                >
-                  {({ points, chartBounds }) => (
-                    <>
-                      <Line
-                        points={points.highTmp}
-                        color="#09f"
-                        strokeWidth={2}
-                        animate={{ type: "timing", duration: 500 }}
-                      />
-                      <Area
-                        points={points.highTmp}
-                        y0={chartBounds.bottom}
-                        animate={{ type: "timing", duration: 500 }}
-                      >
-                        <LinearGradient
-                          start={vec(0, chartBounds.bottom - 100)}
-                          end={vec(0, chartBounds.bottom)}
-                          colors={["#09f80", "#09f20"]}
-                        />
-                      </Area>
-                      {isActive && (
-                        <Circle
-                          cx={state.x.position}
-                          cy={state.y.highTmp.position}
-                          r={6}
-                          color="#09f"
-                          opacity={0.9}
-                        />
-                      )}
-                    </>
-                  )}
-                </CartesianChart>
-              </View>
-
-              {/* X‐axis labels */}
-              <View style={styles.xAxis}>
-                {xTicks.map((x, i) => (
-                  <Text
-                    key={i}
-                    style={[styles.axisLabel, { color: textColor }]}
-                  >
-                    {x}
-                  </Text>
-                ))}
-              </View>
-            </View>
-          </View>
-
-          {/* Info below chart */}
-          <View style={styles.infoRow}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{endDate}</Text>
-            </View>
-            <Text style={[styles.infoTime, { color: textColor }]}>
-              {lastTime}
-            </Text>
-          </View>
-
-          <View style={styles.readingRow}>
-            <Text style={[styles.readingValue, { color: textColor }]}>
-              {bpm}
-            </Text>
-            <Text style={[styles.readingUnit, { color: textColor }]}>
-              BPM
-            </Text>
-          </View>
-          <Text style={[styles.status, { color: textColor }]}>
-            is normal
-          </Text>
-
-          <View style={styles.footerBox}>
-            <Text style={styles.footerText}>
-              Denyut jantung mengukur ... membantu mengidentifikasi tingkat stres.
-            </Text>
-          </View>
-        </View>
-      </SafeAreaView>
-      <NavigationBar />
+    <View style={styles.container}>
+      <Button
+        title="Generate ECG Report"
+        onPress={handlePrint}
+      />
     </View>
-  );
+  )
 }
 
-const { width } = Dimensions.get("window");
-const chartHeight = 240;
-const yAxisWidth = 40;
-
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { flex: 1, padding: 20 },
-  header: { fontSize: 24, fontWeight: "bold", marginBottom: 12 },
-
-  dateRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
-  dateButton: {
+  container: {
     flex: 1,
-    marginHorizontal: 5,
-    padding: 8,
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#09f",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
   },
-  dateLabel: { fontSize: 12, color: "#555" },
-  dateValue: { fontSize: 14 },
-
-  chartWrapper: { flexDirection: "row", marginBottom: 12 },
-  yAxis: {
-    width: yAxisWidth,
-    height: chartHeight,
-    justifyContent: "space-between",
-  },
-  plotAndXAxis: { flex: 1 },
-  chartContainer: {
-    position: "relative",
-    width: width - 40 - yAxisWidth,
-    height: chartHeight,
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#09f",
-    padding: 10,
-  },
-  gridOverlay: StyleSheet.absoluteFillObject,
-  xAxis: {
-    height: 30,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 10,
-  },
-  axisLabel: { fontSize: 10 },
-
-  infoRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  badge: { backgroundColor: "#09f", borderRadius: 20, padding: 6, marginRight: 10 },
-  badgeText: { color: "#fff", fontSize: 12 },
-  infoTime: { fontSize: 12 },
-
-  readingRow: { flexDirection: "row", alignItems: "flex-end" },
-  readingValue: { fontSize: 48, fontWeight: "bold" },
-  readingUnit: { fontSize: 18, marginLeft: 4 },
-  status: { fontSize: 16, marginBottom: 12 },
-
-  footerBox: { backgroundColor: "#def0ff", borderRadius: 12, padding: 12 },
-  footerText: { fontSize: 12, lineHeight: 16, color: "#333" },
-
-  navbarWrapper: {
-    borderTopWidth: 1,
-    borderColor: "#EEE",
-    backgroundColor: "#FFF",
-    paddingVertical: 8,
-  },
-});
+})
