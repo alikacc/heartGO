@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import ScanDevice from './scan_device'; 
 import Landing from './landing'; 
 import Home from './home'; 
-import Plot from './plot'; 
+import Plot from './plotplot'; 
 import History from './history'; 
 import Login from './login'; 
 import SignUp from './signup'; 
@@ -21,7 +21,7 @@ import Webview from './webview'
 export default function App() {
   return (
     <View style={{ flex: 1 }}>
-      <Plot/>
+      <Historical/>
     </View>
   );
 }

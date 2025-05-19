@@ -1,258 +1,144 @@
-// import React from 'react'
-// import {
-//   View,
-//   Text,
-//   StyleSheet,
-//   Dimensions,
-//   ScrollView
-// } from 'react-native'
-// import Svg, { Line, Path } from 'react-native-svg'
-// import ecgData from './ecg.json'
-
-// /** ECG paper specs **/
-// const SMALL_SQ      = 8     // 1 mm = 8 px
-// const LARGE_EVERY   = 5     // darker line every 5 mm
-// const MM_PER_MV     = 10    // 10 mm per 1 mV vertically
-// const MM_PER_SEC    = 25    // 25 mm per 1 s horizontally
-// const SAMPLING_RATE = 320   // Hz
-
-// export default function ECGWithGrid({ data = ecgData }) {
-//   if (!Array.isArray(data) || data.length === 0) {
-//     return (
-//       <View style={styles.container}>
-//         <Text style={styles.placeholder}>
-//           No ECG data to display
-//         </Text>
-//       </View>
-//     )
-//   }
-
-//   // screen dimensions
-//   const { width: screenW, height: H } = Dimensions.get('window')
-
-//   // horizontal scale: px per second
-//   const pxPerSec = MM_PER_SEC * SMALL_SQ
-
-//   // how many seconds fit per “page”?
-//   const secsPerPage = screenW / pxPerSec
-
-//   // total duration of recording
-//   const totalSecs = (data.length - 1) / SAMPLING_RATE
-
-//   // how many pages?
-//   const pages = Math.ceil(totalSecs / secsPerPage)
-
-//   // vertical scale
-//   const pxPerMv   = MM_PER_MV * SMALL_SQ
-//   const baselineY = H / 2
-
-//   // grid line counts for each page
-//   const vCount = Math.ceil(screenW / SMALL_SQ)
-//   const hCount = Math.ceil(H / SMALL_SQ)
-
-//   return (
-//     <View style={styles.container}>
-//       <ScrollView
-//         horizontal
-//         pagingEnabled
-//         showsHorizontalScrollIndicator={false}
-//         style={{ flex: 1 }}
-//         contentContainerStyle={{ height: H }}
-//       >
-//         {Array.from({ length: pages }).map((_, pageIndex) => {
-//           // start/end times for this page
-//           const t0 = pageIndex * secsPerPage
-//           const t1 = t0 + secsPerPage
-
-//           // build path only for points in [t0, t1]
-//           const pathData = data
-//             .map((pt, i) => {
-//               const tSec = pt.Time / SAMPLING_RATE
-//               if (tSec < t0 || tSec > t1) return null
-//               const x = (tSec - t0) * pxPerSec
-//               const y = baselineY - (pt.ECG_Lead1 * 1000) * pxPerMv
-//               return `${pathData == null && i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
-//             })
-//             .filter(Boolean)
-//             .map((cmd, i) => (i === 0 ? cmd.replace(/^L/, 'M') : cmd))
-//             .join(' ')
-
-//           return (
-//             <Svg
-//               key={pageIndex}
-//               width={screenW}
-//               height={H}
-//             >
-//               {/* vertical grid */}
-//               {Array.from({ length: vCount }).map((_, i) => {
-//                 const x = i * SMALL_SQ
-//                 const major = i % LARGE_EVERY === 0
-//                 return (
-//                   <Line
-//                     key={`v${pageIndex}-${i}`}
-//                     x1={x} y1={0}
-//                     x2={x} y2={H}
-//                     stroke={major ? '#bbb' : '#eee'}
-//                     strokeWidth={major ? 1 : 0.5}
-//                   />
-//                 )
-//               })}
-//               {/* horizontal grid */}
-//               {Array.from({ length: hCount }).map((_, i) => {
-//                 const y = i * SMALL_SQ
-//                 const major = i % LARGE_EVERY === 0
-//                 return (
-//                   <Line
-//                     key={`h${pageIndex}-${i}`}
-//                     x1={0} y1={y}
-//                     x2={screenW} y2={y}
-//                     stroke={major ? '#bbb' : '#eee'}
-//                     strokeWidth={major ? 1 : 0.5}
-//                   />
-//                 )
-//               })}
-//               {/* ECG trace */}
-//               <Path
-//                 d={pathData}
-//                 fill="none"
-//                 stroke="grey"
-//                 strokeWidth={1}
-//               />
-//             </Svg>
-//           )
-//         })}
-//       </ScrollView>
-//     </View>
-//   )
-// }
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: '#fff',
-//   },
-//   placeholder: {
-//     color: '#999',
-//     fontStyle: 'italic',
-//     textAlign: 'center',
-//     marginTop: 20,
-//   },
-// })
-
 import React from 'react'
 import { View, Button, Dimensions, StyleSheet } from 'react-native'
 import * as Print from 'expo-print'
 import { shareAsync } from 'expo-sharing'
-import ecgData from './ecg.json'  // your pre-converted JSON
+import ecgData from './ecg.json'  // your ECG JSON
 
-/** ECG paper specs **/
-const SMALL_SQ      = 8    // 1 mm = 8 px
-const LARGE_EVERY   = 5    // darker line every 5 mm
-const MM_PER_MV     = 10   // 10 mm per 1 mV vertically
-const MM_PER_SEC    = 25   // 25 mm per 1 s horizontally
-const SAMPLING_RATE = 320  // Hz
+/** Constants **/
+const SMALL_SQ      = 8    // px per 1 mm
+const LARGE_SQ      = SMALL_SQ * 5   // px per 5 mm
+const FRAME_W       = LARGE_SQ * 5   // px per 5 large cols (25 mm = 1 s)
+const FRAME_H       = LARGE_SQ * 10  // px per 10 large rows (50 mm)
+const COLS          = 8    // frames per row
+const ROWS          = 4    // rows per page
+const PX_PER_SEC    = 25 * SMALL_SQ  // 25 mm/s → px/s
+const PX_PER_MV     = 10 * SMALL_SQ  // 10 mm/mV → px/mV
+const SAMPLE_RATE   = 320  // Hz
+const STROKE        = 2
+const HALF_STROKE   = STROKE / 2
 
 export default function ECGReportScreen() {
-  // screen dims
-  const { width: screenW, height: screenH } = Dimensions.get('window')
+  const { width: screenW } = Dimensions.get('window')
+  const pageW = FRAME_W * COLS
+  const pageH = FRAME_H * ROWS
+  const framesPerPage = COLS * ROWS
 
-  // compute total duration & pixel width
-  const totalSecs  = (ecgData.length - 1) / SAMPLING_RATE
-  const pxPerSec   = MM_PER_SEC * SMALL_SQ       // px per second
-  const widthPx    = totalSecs * pxPerSec
-  const heightPx   = screenH                     // use screen height for SVG
+  // total number of 1-second frames in data
+  const totalFrames = Math.floor(ecgData[ecgData.length - 1].Time / SAMPLE_RATE) + 1
+  const numPages = Math.ceil(totalFrames / framesPerPage)
 
-  // build grid lines array
-  const gridLines = []
-  const vCount = Math.ceil(widthPx  / SMALL_SQ)
-  const hCount = Math.ceil(heightPx / SMALL_SQ)
+  // Precompute absolute X for each sample
+  const xs = ecgData.map(pt => (pt.Time / SAMPLE_RATE) * PX_PER_SEC)
 
-  for (let i = 0; i < vCount; i++) {
-    const x     = i * SMALL_SQ
-    const major = i % LARGE_EVERY === 0
-    gridLines.push({ x1: x, y1: 0, x2: x, y2: heightPx, major })
-  }
-  for (let j = 0; j < hCount; j++) {
-    const y     = j * SMALL_SQ
-    const major = j % LARGE_EVERY === 0
-    gridLines.push({ x1: 0, y1: y, x2: widthPx, y2: y, major })
-  }
+  // Build HTML pages
+  const pagesHtml = Array.from({ length: numPages }).map((_, pageIdx) => {
+    const startFrame = pageIdx * framesPerPage
+    const endFrame   = startFrame + framesPerPage
 
-  // build ECG path string
-  const pxPerMv   = MM_PER_MV * SMALL_SQ          // px per mV
-  const baselineY = heightPx / 2                  // vertical center
-  const pathData  = ecgData.map((pt, i) => {
-    const tSec = pt.Time / SAMPLING_RATE
-    const x    = tSec * pxPerSec
-    const y    = baselineY - (pt.ECG_Lead1 * 1000) * pxPerMv
-    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(' ')
+    // 1) Build ECG <path> for this page
+    let prevFrame = -1
+    const commands = ecgData.reduce((acc, pt, i) => {
+      const tSec     = pt.Time / SAMPLE_RATE
+      const frameIdx = Math.floor(tSec)
+      if (frameIdx < startFrame || frameIdx >= endFrame) return acc
 
-  // generate the full HTML + SVG string
+      const col = (frameIdx - startFrame) % COLS
+      const row = Math.floor((frameIdx - startFrame) / COLS)
+      const xInFrame = (tSec - frameIdx) * PX_PER_SEC
+      const x = col * FRAME_W + xInFrame
+      const y = row * FRAME_H + FRAME_H/2 - (pt.ECG_Lead1 * 1000) * PX_PER_MV
+
+      acc.push((frameIdx !== prevFrame ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1))
+      prevFrame = frameIdx
+      return acc
+    }, []).join(' ')
+
+    // 2) Grid lines (minor + major)
+    const grid = []
+    const colsSmall = pageW / SMALL_SQ
+    const rowsSmall = pageH / SMALL_SQ
+    for (let i = 0; i <= colsSmall; i++) {
+      const x = i * SMALL_SQ
+      const major = i % 5 === 0
+      grid.push(`<line x1="${x}" y1="0" x2="${x}" y2="${pageH}"
+        stroke="${major ? '#bbb' : '#eee'}" stroke-width="${major ? 1 : 0.5}" />`)
+    }
+    for (let j = 0; j <= rowsSmall; j++) {
+      const y = j * SMALL_SQ
+      const major = j % 5 === 0
+      grid.push(`<line x1="0" y1="${y}" x2="${pageW}" y2="${y}"
+        stroke="${major ? '#bbb' : '#eee'}" stroke-width="${major ? 1 : 0.5}" />`)
+    }
+
+    // 3) Frame borders inset by half stroke
+    const borders = []
+    for (let c = 0; c <= COLS; c++) {
+      const x = c * FRAME_W - HALF_STROKE
+      borders.push(`<line x1="${x}" y1="0" x2="${x}" y2="${pageH}"
+        stroke="#000" stroke-width="${STROKE}" />`)
+    }
+    for (let r = 0; r <= ROWS; r++) {
+      const y = r * FRAME_H - HALF_STROKE
+      borders.push(`<line x1="0" y1="${y}" x2="${pageW}" y2="${y}"
+        stroke="#000" stroke-width="${STROKE}" />`)
+    }
+
+    // 4) Combine into one SVG
+    return `
+      <div class="page">
+        <div class="header">
+          Enhanced Filter · Mains Filter: 50 Hz · Scale: 25 mm/s, 10 mm/mV
+        </div>
+        <svg width="${pageW}" height="${pageH}" xmlns="http://www.w3.org/2000/svg">
+          ${grid.join('\n')}
+          ${borders.join('\n')}
+          <path d="${commands}" fill="none" stroke="#000" stroke-width="1.2"/>
+        </svg>
+      </div>`
+  }).join('\n')
+
+  // 5) Full HTML with A4 portrait layout
   const html = `
-  <html>
-    <head>
-      <meta name="viewport" content="width=${widthPx}, height=${heightPx}" />
-      <style>
-        body { margin: 0; padding: 0; }
-        .header {
-          font-family: sans-serif;
-          font-size: 14px;
-          text-align: center;
-          margin-top: 8px;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        Enhanced Filter · Mains Filter: 50 Hz · Scale: 25 mm/s, 10 mm/mV
-      </div>
-      <svg width="${widthPx}" height="${heightPx}" xmlns="http://www.w3.org/2000/svg">
-        ${gridLines.map(line => `
-          <line
-            x1="${line.x1}" y1="${line.y1}"
-            x2="${line.x2}" y2="${line.y2}"
-            stroke="${line.major ? '#bbb' : '#eee'}"
-            stroke-width="${line.major ? 1 : 0.5}"
-          />
-        `).join('')}
-        <path d="${pathData}"
-              fill="none"
-              stroke="black"
-              stroke-width="1.2"
-        />
-      </svg>
-    </body>
-  </html>`
+    <html>
+      <head>
+        <meta name="viewport" content="width=${pageW}, height=${pageH}" />
+        <style>
+          @page { size: A4 portrait; margin: 0 }
+          body { margin:0; padding:0; }
+          .header {
+            font-family: sans-serif;
+            font-size: 12px;
+            text-align: right;
+            padding: 8px;
+          }
+          .page { page-break-after: always; }
+        </style>
+      </head>
+      <body>
+        ${pagesHtml}
+      </body>
+    </html>`
 
-  // trigger PDF generation & share
+  // 6) Print to PDF & share
   const handlePrint = async () => {
     try {
       const { uri } = await Print.printToFileAsync({ html })
-      await shareAsync(uri, {
-        mimeType: 'application/pdf',
-        UTI: 'com.adobe.pdf',
-      })
+      await shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' })
     } catch (err) {
-      console.error('Error generating PDF', err)
+      console.error('PDF generation error', err)
     }
   }
 
   return (
     <View style={styles.container}>
-      <Button
-        title="Generate ECG Report"
-        onPress={handlePrint}
-      />
+      <Button title="Generate ECG PDF Report" onPress={handlePrint}/>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
+    flex: 1, justifyContent: 'center',
+    padding: 16, backgroundColor: '#fff',
   },
 })
