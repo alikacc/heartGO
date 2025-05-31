@@ -1,1027 +1,542 @@
-
-// import React, { useState, useEffect, useRef } from 'react';
-// import { 
-//   View, 
-//   Text, 
-//   TouchableOpacity, 
-//   StyleSheet, 
-//   ScrollView, 
-//   Platform,
-//   SafeAreaView,
-//   StatusBar,
-//   Dimensions
-// } from 'react-native';
-// import { format } from 'date-fns';
-// import { Modal } from 'react-native';
-// import { Calendar } from 'react-native-calendars';
-// import NavigationBar from './component/navbar';
-// import Header from './component/header';
-
-// // Sample data in CSV format - in a real app this would come from a file or API
-// const csvData = `timestamp,parameter,value,unit,status
-// 2024-06-14T10:10:00,Heart Rate,72,bpm,Normal
-// 2024-06-14T10:15:00,QRS Duration,120,ms,Abnormal
-// 2024-06-14T10:20:00,Heart Rhythm,Regular,,Normal
-// 2024-06-14T10:25:00,QTc Interval,410,ms,Normal
-// 2024-06-14T10:30:00,Heart Rate,75,bpm,Normal
-// 2024-06-14T11:00:00,QRS Duration,130,ms,Abnormal
-// 2024-06-14T11:15:00,Heart Rhythm,Regular,,Normal
-// 2024-06-14T11:30:00,QTc Interval,415,ms,Normal
-// 2024-06-13T10:10:00,Heart Rate,68,bpm,Normal
-// 2024-06-13T10:15:00,QRS Duration,110,ms,Normal
-// 2024-06-13T10:20:00,Heart Rhythm,Regular,,Normal
-// 2024-06-13T10:25:00,QTc Interval,405,ms,Normal
-// 2024-06-12T10:10:00,Heart Rate,80,bpm,Abnormal
-// 2024-06-12T10:15:00,QRS Duration,135,ms,Abnormal
-// 2024-06-12T10:20:00,Heart Rhythm,Irregular,,Abnormal
-// 2024-06-12T10:25:00,QTc Interval,440,ms,Abnormal`;
-
-// // Parse CSV to JavaScript objects
-// const parseCSV = (csv) => {
-//   const lines = csv.split('\n');
-//   const headers = lines[0].split(',');
-  
-//   return lines.slice(1).map(line => {
-//     const values = line.split(',');
-//     const entry = {};
-//     headers.forEach((header, index) => {
-//       entry[header] = values[index];
-//     });
-//     return entry;
-//   });
-// };
-
-
-
-// // Extract unique dates from data
-// const getUniqueDates = (data) => {
-//   const dates = data.map(item => item.timestamp.split('T')[0]);
-//   return [...new Set(dates)].sort((a, b) => new Date(b) - new Date(a)); // Most recent first
-// };
-
-// // Get most recent records for each parameter
-// const getLatestRecords = (data, date) => {
-//   // Filter by selected date
-//   const dateData = data.filter(item => item.timestamp.startsWith(date));
-  
-//   // Group by parameter
-//   const parameterGroups = {};
-//   dateData.forEach(item => {
-//     if (!parameterGroups[item.parameter]) {
-//       parameterGroups[item.parameter] = [];
-//     }
-//     parameterGroups[item.parameter].push(item);
-//   });
-  
-//   // Get latest record for each parameter
-//   const latestRecords = {};
-//   Object.keys(parameterGroups).forEach(parameter => {
-//     const records = parameterGroups[parameter];
-//     records.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-//     latestRecords[parameter] = records[0];
-    
-//     // Add the history for this parameter
-//     latestRecords[parameter].history = records.slice(0, 3).map(record => ({
-//       timestamp: record.timestamp,
-//       value: record.value,
-//       unit: record.unit
-//     }));
-//   });
-  
-//   return latestRecords;
-// };
-
-// const App = () => {
-//   const parsedData = parseCSV(csvData);
-//   const uniqueDates = getUniqueDates(parsedData);
-
-//   const [calendarMonth, setCalendarMonth] = useState(selectedDate);
-//   const todayString = new Date().toISOString().split('T')[0];
-
-  
-//   const [selectedDate, setSelectedDate] = useState(uniqueDates[0]); // Default to most recent date
-//   const availableDates = uniqueDates; // Dates that have data
-
-//   const generateMarkedDates = () => {
-//     const marks = {};
-  
-//     // Mark available dates
-//     availableDates.forEach(date => {
-//       marks[date] = {
-//         selected: date === selectedDate,
-//         selectedColor: '#09f',
-//         selectedTextColor: '#fff',
-//         disabled: false,
-//       };
-//     });
-  
-//     // Dim all days in month that are not available
-//     const today = new Date();
-//     const currentMonth = today.toISOString().substring(0, 7);
-//     for (let d = 1; d <= 31; d++) {
-//       const day = `${currentMonth}-${String(d).padStart(2, '0')}`;
-//       if (!availableDates.includes(day)) {
-//         marks[day] = { disabled: true, disableTouchEvent: true };
-//       }
-//     }
-  
-//     return marks;
-//   };
-  
-
-//   const [statusFilter, setStatusFilter] = useState('All');
-//   const [showDatePicker, setShowDatePicker] = useState(false);
-  
-//   // Get the latest records for each parameter on the selected date
-//   const latestRecords = getLatestRecords(parsedData, selectedDate);
-  
-//   // Filter records by selected status
-//   const filteredRecords = Object.values(latestRecords).filter(record => {
-//     if (statusFilter === 'All') return true;
-//     return record.status === statusFilter;
-//   });
-
-//   // Format date for display
-//   const formatDisplayDate = (dateStr) => {
-//     const date = new Date(dateStr);
-//     return format(date, 'd MMMM yyyy');
-//   };
-  
-//   // Format time for display in history items
-//   const formatTime = (timestampStr) => {
-//     const date = new Date(timestampStr);
-//     return format(date, 'HH:mm');
-//   };
-
-//   const goToToday = () => {
-//     setCalendarMonth(todayString);
-//     setSelectedDate(todayString);
-//   };
-  
-
-//   return (
-//     <View style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
-//       {/* <Header title="Profile" /> */}
-//       <SafeAreaView style={styles.safeArea}>
-//         <StatusBar barStyle="dark-content" />
-        
-//         {/* Connection Status */}
-//         <View style={styles.connectionContainer}>
-//           <Text style={styles.connectionText}>You are</Text>
-//           <Text style={styles.connectedText}>Connected</Text>
-//         </View>
-        
-//         {/* Parameter Header */}
-//         <Text style={styles.headerText}>Parameter</Text>
-        
-//         {/* Date Picker
-//         <View style={styles.datePickerContainer}>
-//           <TouchableOpacity 
-//             style={styles.datePickerButton}
-//             onPress={() => setShowDatePicker(!showDatePicker)}
-//           >
-//             <Text style={styles.datePickerText}>
-//               Date: {formatDisplayDate(selectedDate)}
-//             </Text>
-//             <Text style={styles.datePickerIcon}>⌵</Text>
-//           </TouchableOpacity> */}
-          
-//           {/* Date Options Dropdown */}
-//           {/* {showDatePicker && (
-//             <View style={styles.dateOptions}>
-//               <ScrollView style={styles.dateScroll}>
-//                 {uniqueDates.map((date, index) => (
-//                   <TouchableOpacity
-//                     key={index}
-//                     style={styles.dateOption}
-//                     onPress={() => {
-//                       setSelectedDate(date);
-//                       setShowDatePicker(false);
-//                     }}
-//                   >
-//                     <Text style={styles.dateOptionText}>{formatDisplayDate(date)}</Text>
-//                   </TouchableOpacity>
-//                 ))}
-//               </ScrollView>
-//             </View>
-//           )}
-//         </View> */}
-
-//         <View style={{ paddingHorizontal: 15 }}>
-//           <TouchableOpacity 
-//             style={styles.datePickerButton}
-//             onPress={() => setShowDatePicker(true)}
-//           >
-//             <Text style={styles.datePickerText}>
-//               Date: {formatDisplayDate(selectedDate)}
-//             </Text>
-//             <Text style={styles.datePickerIcon}>📅</Text>
-//           </TouchableOpacity>
-
-//           <Modal
-//             visible={showDatePicker}
-//             transparent
-//             animationType="fade"
-//             onRequestClose={() => setShowDatePicker(false)}
-//           >
-//             <TouchableOpacity 
-//               style={styles.modalBackdrop}
-//               activeOpacity={1}
-//               onPressOut={() => setShowDatePicker(false)}
-//             >
-//               <View style={styles.modalContainer}>
-//               <TouchableOpacity 
-//                 onPress={goToToday}
-//                 style={styles.todayButton}
-//               >
-//                 <Text style={styles.todayButtonText}>Today</Text>
-//               </TouchableOpacity>
-
-//               <Calendar
-//                 current={calendarMonth}
-//                 onDayPress={(day) => {
-//                   if (availableDates.includes(day.dateString)) {
-//                     setSelectedDate(day.dateString);
-//                     setCalendarMonth(day.dateString); // 🔥 Save month state
-//                     setShowDatePicker(false);
-//                   }
-//                 }}
-//                 onMonthChange={(month) => {
-//                   setCalendarMonth(`${month.year}-${String(month.month).padStart(2, '0')}-01`);
-//                 }}
-//                 markedDates={generateMarkedDates()}
-//                 disableAllTouchEventsForDisabledDays={true}
-//                 theme={{
-//                   todayTextColor: '#09f',
-//                   selectedDayBackgroundColor: '#09f',
-//                   selectedDayTextColor: '#fff',
-//                   disabledTextColor: '#ccc',
-//                 }}
-//               />
-
-//               </View>
-//             </TouchableOpacity>
-//           </Modal>
-//         </View>
-
-
-        
-//         {/* Status Filters */}
-//         <View style={styles.filtersContainer}>
-//           <TouchableOpacity 
-//             style={[
-//               styles.filterButton, 
-//               statusFilter === 'All' && styles.activeFilter
-//             ]}
-//             onPress={() => setStatusFilter('All')}
-//           >
-//             <Text style={styles.filterText}>All</Text>
-//           </TouchableOpacity>
-          
-//           <TouchableOpacity 
-//             style={[
-//               styles.filterButton, 
-//               statusFilter === 'Normal' && styles.activeFilter
-//             ]}
-//             onPress={() => setStatusFilter('Normal')}
-//           >
-//             <Text style={styles.filterText}>Normal</Text>
-//           </TouchableOpacity>
-          
-//           <TouchableOpacity 
-//             style={[
-//               styles.filterButton, 
-//               statusFilter === 'Abnormal' && styles.activeFilter
-//             ]}
-//             onPress={() => setStatusFilter('Abnormal')}
-//           >
-//             <Text style={styles.filterText}>Abnormal</Text>
-//           </TouchableOpacity>
-//         </View>
-        
-//         {/* Parameter Boxes */}
-//         {/* Fixed ScrollView with contentContainerStyle for proper layout */}
-//         <ScrollView 
-//           style={styles.parametersContainer}
-//           contentContainerStyle={styles.parametersContentContainer}
-//         >
-//           {Object.values(latestRecords)
-//             .filter(record => {
-//               if (statusFilter === 'All') return true;
-//               return record.status === statusFilter;
-//             })
-//             .map((record, index) => (
-//               <TouchableOpacity 
-//                 key={index}
-//                 style={styles.parameterBox}
-//                 onPress={() => console.log(`Clicked on ${record.parameter}`)}
-//               >
-//                 {/* Parameter Header */}
-//                 <View style={styles.parameterHeader}>
-//                   <Text style={styles.parameterTitle}>{record.parameter}</Text>
-//                   <Text style={styles.parameterArrow}>›</Text>
-//                 </View>
-                
-//                 {/* Parameter Value */}
-//                 <View style={styles.parameterValueContainer}>
-//                   <Text style={styles.parameterValue}>
-//                     {record.value} 
-//                     <Text style={styles.parameterUnit}> {record.unit}</Text>
-//                   </Text>
-//                   <Text style={[
-//                     styles.parameterStatus,
-//                     record.status === 'Normal' ? styles.normalStatus : styles.abnormalStatus
-//                   ]}>
-//                     {record.status}
-//                   </Text>
-//                 </View>
-                
-//                 {/* Parameter History */}
-//                 <View style={styles.historyContainer}>
-//                   {record.history.map((item, historyIndex) => (
-//                     <Text key={historyIndex} style={styles.historyItem}>
-//                       • {item.value} {item.unit}, {formatTime(item.timestamp)}
-//                     </Text>
-//                   ))}
-//                 </View>
-                
-//                 {/* Extra Info for QRS Duration */}
-//                 {record.parameter === 'QRS Duration' && record.status === 'Abnormal' && (
-//                   <View style={styles.infoBox}>
-//                     <Text style={styles.infoTitle}>QRS duration is prolonged</Text>
-//                     <Text style={styles.infoText}>which may indicate conduction delay</Text>
-//                   </View>
-//                 )}
-//               </TouchableOpacity>
-//             ))}
-//         </ScrollView>
-
-//         <NavigationBar/>
-//       </SafeAreaView>
-//     </View>
-//   );
-// };
-
-// const windowWidth = Dimensions.get('window').width;
-// const boxWidth = (windowWidth - 40) / 2; // 40 is the total horizontal padding
-
-
-// const styles = StyleSheet.create({
-//   safeArea: {
-//     flex: 1,
-//     backgroundColor: '#F8F9FA',
-//     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-//   },
-//   connectionContainer: {
-//     flexDirection: 'row',
-//     padding: 10,
-//     alignItems: 'center',
-//     marginTop: -20,
-//   },
-//   connectionText: {
-//     fontSize: 14,
-//     color: '#333',
-//     marginRight: 4,
-//   },
-//   connectedText: {
-//     fontSize: 14,
-//     color: '#00CC00',
-//     fontWeight: 'bold',
-//   },
-//   headerText: {
-//     fontSize: 24,
-//     fontWeight: 'bold',
-//     padding: 15,
-//     paddingBottom: 10,
-//   },
-//   datePickerContainer: {
-//     paddingHorizontal: 15,
-//     position: 'relative',
-//     zIndex: 100,
-//   },
-//   datePickerButton: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//     alignItems: 'center',
-//     padding: 12,
-//     borderRadius: 25,
-//     borderWidth: 1,
-//     borderColor: '#DDD',
-//     backgroundColor: '#FFF',
-//   },
-//   datePickerText: {
-//     fontSize: 16,
-//     color: '#333',
-//   },
-//   datePickerIcon: {
-//     fontSize: 18,
-//     color: '#333',
-//   },
-//   dateOptions: {
-//     position: 'absolute',
-//     top: 55,
-//     left: 15,
-//     right: 15,
-//     backgroundColor: '#FFF',
-//     borderRadius: 10,
-//     borderWidth: 1,
-//     borderColor: '#DDD',
-//     maxHeight: 200,
-//     zIndex: 101,
-//   },
-//   dateScroll: {
-//     maxHeight: 200,
-//   },
-//   dateOption: {
-//     padding: 12,
-//     borderBottomWidth: 1,
-//     borderBottomColor: '#EEE',
-//   },
-//   dateOptionText: {
-//     fontSize: 16,
-//     color: '#333',
-//   },
-//   filtersContainer: {
-//     flexDirection: 'row',
-//     justifyContent: 'flex-start',
-//     padding: 15,
-//     zIndex: 50,
-//   },
-//   filterButton: {
-//     paddingVertical: 8,
-//     paddingHorizontal: 20,
-//     borderRadius: 20,
-//     marginRight: 10,
-//     backgroundColor: '#EEE',
-//   },
-//   activeFilter: {
-//     backgroundColor: '#09f',
-//   },
-//   filterText: {
-//     fontSize: 14,
-//     fontWeight: '500',
-//     color: '#333',
-//   },
-//   parametersContainer: {
-//     flex: 1,
-//     padding: 10,
-//   },
-//   parametersContentContainer: {
-//     flexDirection: 'row',
-//     flexWrap: 'wrap',
-//     justifyContent: 'space-between',
-//   },
-//   parameterBox: {
-//     width: boxWidth,
-//     backgroundColor: '#FFF',
-//     borderRadius: 10,
-//     padding: 15,
-//     marginBottom: 10,
-//     shadowColor: '#000',
-//     shadowOffset: { width: 0, height: 1 },
-//     shadowOpacity: 0.1,
-//     shadowRadius: 2,
-//     elevation: 2,
-//   },
-//   parameterHeader: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//     alignItems: 'center',
-//     marginBottom: 10,
-//   },
-//   parameterTitle: {
-//     fontSize: 16,
-//     fontWeight: '500',
-//     color: '#36f',
-//   },
-//   parameterArrow: {
-//     fontSize: 18,
-//     color: '#36f',
-//   },
-//   parameterValueContainer: {
-//     flexDirection: 'row',
-//     flexWrap: 'wrap',
-//   },
-//   parameterValue: {
-//     fontSize: 28,
-//     fontWeight: 'bold',
-//     marginRight: 10,
-//   },
-//   parameterUnit: {
-//     fontSize: 18,
-//     fontWeight: 'normal',
-//     color: '#666',
-//   },
-//   parameterStatus: {
-//     fontSize: 18,
-//     fontWeight: 'bold',
-//   },
-//   normalStatus: {
-//     color: '#00CC00',
-//   },
-//   abnormalStatus: {
-//     color: '#FF0000',
-//   },
-//   historyContainer: {
-//     marginTop: 5,
-//   },
-//   historyItem: {
-//     fontSize: 12,
-//     color: '#666',
-//     marginBottom: 2,
-//   },
-//   infoBox: {
-//     backgroundColor: '#E8F4FF',
-//     borderRadius: 5,
-//     padding: 10,
-//     marginTop: 10,
-//   },
-//   infoTitle: {
-//     fontSize: 12,
-//     fontWeight: 'bold',
-//     color: '#09f',
-//   },
-//   infoText: {
-//     fontSize: 12,
-//     color: '#09f',
-//   },
-//   modalBackdrop: {
-//     flex: 1,
-//     backgroundColor: 'rgba(0,0,0,0.4)',
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//   },
-//   modalContainer: {
-//     width: '90%',
-//     backgroundColor: '#FFF',
-//     borderRadius: 10,
-//     padding: 10,
-//     elevation: 10,
-//   },  
-//   todayButton: {
-//     alignSelf: 'flex-end',
-//     marginBottom: 10,
-//     paddingHorizontal: 10,
-//     paddingVertical: 5,
-//     backgroundColor: '#09f',
-//     borderRadius: 8,
-//   },
-//   todayButtonText: {
-//     color: 'white',
-//     fontWeight: 'bold',
-//   },  
-// });
-
-// export default App;
-
 // Home.js
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
-  Platform,
   SafeAreaView,
   StatusBar,
-  Dimensions,
   Modal,
 } from 'react-native';
-import { format } from 'date-fns';
+import { format, parse, isValid } from 'date-fns';
 import { Calendar } from 'react-native-calendars';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Header from './component/header';
 import NavigationBar from './component/navbar';
+import * as SQLite from 'expo-sqlite';
+import { BLEContext } from './BLEContext';
+import { useRouter } from 'expo-router';
+import { sharedStyles } from './styles/shared';
+import { homeStyles } from './styles/components/homeStyles';
+import { useUser } from './UserContext';
 
-// --- your CSV parsing + helper functions unchanged ---
-const csvData = `timestamp,parameter,value,unit,status
-2024-06-14T10:10:00,Heart Rate,72,bpm,Normal
-…`; // truncated for brevity
-
-const parseCSV = (csv) => {
-  const lines = csv.split('\n');
-  const headers = lines[0].split(',');
-  return lines.slice(1).map(line => {
-    const values = line.split(',');
-    const entry = {};
-    headers.forEach((h, i) => { entry[h] = values[i]; });
-    return entry;
-  });
+// ─── Threshold definitions ─────────────────────────────────────
+const THRESHOLDS = {
+  'Heartbeat': { min: 50, max: 90, unit: 'bpm' },
+  'QRS Duration': { min: 75, max: 105, unit: 'ms' },
+  'QT Interval': { max: 440, unit: 'ms' }, // Using the most conservative threshold
+  'Heart Variance': { max: 20, unit: 'ms' }, // R-R interval variation
 };
 
-const getUniqueDates = data => {
-  const dates = data.map(d => d.timestamp.split('T')[0]);
-  return [...new Set(dates)].sort((a,b)=> new Date(b) - new Date(a));
+// ─── Status determination function ─────────────────────────────────────
+const determineStatus = (parameter, value) => {
+  const numValue = parseFloat(value);
+  if (isNaN(numValue)) return 'Normal'; // Default for invalid values
+
+  const threshold = THRESHOLDS[parameter];
+  if (!threshold) return 'Normal'; // Default for unknown parameters
+
+  switch (parameter) {
+    case 'Heartbeat':
+      return (numValue >= threshold.min && numValue <= threshold.max) ? 'Normal' : 'Abnormal';
+
+    case 'QRS Duration':
+      return (numValue >= threshold.min && numValue <= threshold.max) ? 'Normal' : 'Abnormal';
+
+    case 'QT Interval':
+      return (numValue <= threshold.max) ? 'Normal' : 'Abnormal';
+
+    case 'Heart Variance':
+      return (numValue <= threshold.max) ? 'Normal' : 'Abnormal';
+
+    default:
+      return 'Normal';
+  }
 };
 
-const getLatestRecords = (data, date) => {
-  // Filter by selected date
-  const dateData = data.filter(item => item.timestamp.startsWith(date));
-  
-  // Group by parameter
-  const parameterGroups = {};
-  dateData.forEach(item => {
-    if (!parameterGroups[item.parameter]) {
-      parameterGroups[item.parameter] = [];
-    }
-    parameterGroups[item.parameter].push(item);
+// ─── Flatten + derive ISO dateKey ─────────────────────────────────────
+const flattenDbRows = (rows) =>
+  rows.flatMap(r => {
+    const rawTs = typeof r.timestamp === 'string' ? r.timestamp : '';
+    const dt = parse(rawTs, 'dd/MM/yyyy HH:mm:ss', new Date());
+    const dateKey = isValid(dt)
+      ? format(dt, 'yyyy-MM-dd')
+      : format(new Date(), 'yyyy-MM-dd');
+
+    const heartbeatValue = String(r.heartbeat || 0);
+    const qtValue = String(r.qt || 0);
+    const qrsValue = String(r.qrs || 0);
+    const heartvarianceValue = String(r.heartvariance || 0);
+
+    return [
+      {
+        rawTs,
+        dateKey,
+        parameter: 'Heartbeat',
+        value: heartbeatValue,
+        unit: 'bpm',
+        status: determineStatus('Heartbeat', heartbeatValue)
+      },
+      {
+        rawTs,
+        dateKey,
+        parameter: 'QT Interval',
+        value: qtValue,
+        unit: 'ms',
+        status: determineStatus('QT Interval', qtValue)
+      },
+      {
+        rawTs,
+        dateKey,
+        parameter: 'QRS Duration',
+        value: qrsValue,
+        unit: 'ms',
+        status: determineStatus('QRS Duration', qrsValue)
+      },
+      {
+        rawTs,
+        dateKey,
+        parameter: 'Heart Variance',
+        value: heartvarianceValue,
+        unit: 'ms',
+        status: determineStatus('Heart Variance', heartvarianceValue)
+      },
+    ];
   });
-  
-  // Get latest record for each parameter
-  const latestRecords = {};
-  Object.keys(parameterGroups).forEach(parameter => {
-    const records = parameterGroups[parameter];
-    records.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    latestRecords[parameter] = records[0];
-    
-    // Add the history for this parameter
-    latestRecords[parameter].history = records.slice(0, 3).map(record => ({
-      timestamp: record.timestamp,
-      value: record.value,
-      unit: record.unit
-    }));
-  });
-  
-  return latestRecords;
+
+const getUniqueDates = (data) =>
+  [...new Set(data.map(d => d.dateKey))]
+    .sort((a, b) => new Date(b) - new Date(a));
+
+const getLatestRecords = (data, dateKey) => {
+  const byParam = {};
+  data
+    .filter(item => item.dateKey === dateKey)
+    .forEach(item => {
+      (byParam[item.parameter] ||= []).push(item);
+    });
+
+  const latest = {};
+  for (const [param, items] of Object.entries(byParam)) {
+    items.sort((a, b) => {
+      const da = parse(a.rawTs, 'dd/MM/yyyy HH:mm:ss', new Date());
+      const db = parse(b.rawTs, 'dd/MM/yyyy HH:mm:ss', new Date());
+      return db - da;
+    });
+    latest[param] = {
+      ...items[0],
+      history: items.slice(0, 3).map(h => ({
+        rawTs: h.rawTs,
+        value: h.value,
+        unit: h.unit,
+      })),
+    };
+  }
+  return latest;
 };
 
-// --- Home component starts here ---
+// // ─── Helper functions for abnormal status messages ─────────────────────────────────────
+// const getAbnormalMessage = (parameter, value) => {
+//   const threshold = THRESHOLDS[parameter];
+//   if (!threshold) return `${parameter} is abnormal`;
+
+//   switch (parameter) {
+//     case 'Heartbeat':
+//       if (value < threshold.min) return 'Heart rate is too low (Bradycardia)';
+//       if (value > threshold.max) return 'Heart rate is too high (Tachycardia)';
+//       break;
+
+//     case 'QRS Duration':
+//       if (value < threshold.min) return 'QRS duration is too short';
+//       if (value > threshold.max) return 'QRS duration is prolonged';
+//       break;
+
+//     case 'QT Interval':
+//       if (value > threshold.max) return 'QT interval is prolonged';
+//       break;
+
+//     case 'Heart Variance':
+//       if (value > threshold.max) return 'Heart rhythm variability is high';
+//       break;
+
+//     default:
+//       return `${parameter} is abnormal`;
+//   }
+//   return `${parameter} is abnormal`;
+// };
+
+// const getAbnormalDescription = (parameter) => {
+//   switch (parameter) {
+//     case 'Heartbeat':
+//       return 'which may indicate cardiac rhythm disorders';
+
+//     case 'QRS Duration':
+//       return 'which may indicate conduction delay';
+
+//     case 'QT Interval':
+//       return 'which may increase risk of arrhythmias';
+
+//     case 'Heart Variance':
+//       return 'which may indicate irregular heart rhythm';
+
+//     default:
+//       return 'please consult with healthcare provider';
+//   }
+// };
+
 export default function Home() {
-  const parsed = parseCSV(csvData);
-  const uniqueDates = getUniqueDates(parsed);
-
-  // pick first available date as default
-  const [selectedDate, setSelectedDate] = useState(uniqueDates[0]);
-  // calendarMonth should start at that month
-  const [calendarMonth, setCalendarMonth] = useState(
-    uniqueDates[0].slice(0,7) + '-01'
-  );
-  const todayString = new Date().toISOString().split('T')[0];
-
-  // status filter etc…
+  const { isConnected } = useContext(BLEContext);
+  const { db, getCurrentUserTable, currentUser } = useUser();
+  const router = useRouter();
+  const todayIso = format(new Date(), 'yyyy-MM-dd');
+  const [flatData, setFlatData] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(todayIso);
+  const [calendarMonth, setCalendarMonth] = useState(todayIso.slice(0, 7) + '-01');
   const [statusFilter, setStatusFilter] = useState('All');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const latestRecords = getLatestRecords(parsed, selectedDate);
+  // Use ref to store marked dates and prevent unnecessary re-renders
+  const markedDatesRef = useRef({});
+  const uniqueDatesRef = useRef([]);
+
+  const loadData = useCallback(async () => {
+    if (!db || !currentUser) {
+      console.log('⚠️ Database or current user not ready yet');
+      return;
+    }
+
+    try {
+      const tableName = getCurrentUserTable();
+      console.log(`📊 Loading data from table: ${tableName} for user: ${currentUser.name}`);
+
+      const rows = await db.getAllAsync(`SELECT * FROM ${tableName};`);
+      console.log(`📈 Loaded ${rows.length} records from ${tableName}`);
+
+      const data = flattenDbRows(rows);
+      setFlatData(data);
+
+      const dates = getUniqueDates(data);
+      if (dates.length) {
+        setSelectedDate(dates[0]);
+        setCalendarMonth(dates[0].slice(0, 7) + '-01');
+      }
+    } catch (error) {
+      console.error('❌ Error loading data:', error);
+      // If table doesn't exist, it might be a new user with no data yet
+      setFlatData([]);
+    }
+  }, [db, currentUser, getCurrentUserTable]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMeasurements = async () => {
+      if (!db || !currentUser) {
+        console.log('⚠️ Database or current user not ready');
+        if (!cancelled) {
+          setMeasurements([]);
+        }
+        return;
+      }
+
+      try {
+        const tableName = getCurrentUserTable();
+        console.log(`📊 Loading measurements from table: ${tableName}`);
+
+        // Check if table exists
+        const tableExists = await db.getFirstAsync(`
+          SELECT name FROM sqlite_master 
+          WHERE type='table' AND name=?;
+        `, tableName);
+
+        if (!tableExists) {
+          console.log(`⚠️ Table ${tableName} does not exist`);
+          if (!cancelled) {
+            setMeasurements([]);
+          }
+          return;
+        }
+
+        // Rest of existing loadMeasurements logic...
+
+      } catch (error) {
+        console.error('❌ Error loading measurements:', error);
+        if (!cancelled) {
+          setMeasurements([]);
+        }
+      }
+    };
+
+    loadMeasurements();
+    return () => { cancelled = true };
+  }, [db, currentUser, getCurrentUserTable, selectedDate]);
+
+  useFocusEffect(useCallback(() => {
+    loadData();
+  }, [loadData]));
+
+  const uniqueDates = useMemo(() => {
+    const dates = getUniqueDates(flatData);
+    uniqueDatesRef.current = dates;
+    return dates;
+  }, [flatData]);
+
+  const latestRecords = useMemo(() => getLatestRecords(flatData, selectedDate), [flatData, selectedDate]);
 
   const formatDisplayDate = ds => format(new Date(ds), 'd MMMM yyyy');
-  const formatTime = ts => format(new Date(ts), 'HH:mm');
+  const formatTime = rawTs => {
+    const dt = parse(rawTs, 'dd/MM/yyyy HH:mm:ss', new Date());
+    return isValid(dt) ? format(dt, 'HH:mm') : '--:--';
+  };
 
-  // --- Build markedDates for Calendar ---
-  const generateMarkedDates = () => {
+  // Optimized marked dates generation - stable reference to prevent flickering
+  const markedDates = useMemo(() => {
+    if (!calendarMonth || uniqueDates.length === 0) return {};
+
     const marks = {};
-
-    // 1) Mark every available date as enabled
-    uniqueDates.forEach(d => {
-      marks[d] = {
-        disabled: false,
-        disableTouchEvent: false,
-        selected: d === selectedDate,
-        selectedColor: '#09f',
-        selectedTextColor: '#fff',
-      };
-    });
-
-    // 2) Dim all other days in current month
+    const uniqueSet = new Set(uniqueDates);
     const [year, month] = calendarMonth.split('-');
-    const daysInMonth = new Date(+year, +month, 0).getDate();
-    const monthPrefix = `${year}-${month}`;
+    if (!year || !month) return {};
 
-    for (let day = 1; day <= daysInMonth; day++) {
-      const d = `${monthPrefix}-${String(day).padStart(2,'0')}`;
-      if (!uniqueDates.includes(d)) {
-        marks[d] = {
-          ...(marks[d]||{}),
-          disabled: true,
-          disableTouchEvent: true,
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayStr = String(d).padStart(2, '0');
+      const dateKey = `${year}-${month.padStart(2, '0')}-${dayStr}`;
+      const hasData = uniqueSet.has(dateKey);
+      const isSel = dateKey === selectedDate;
+
+      if (hasData || isSel) {
+        marks[dateKey] = {
+          customStyles: {
+            container: {
+              backgroundColor: isSel ? '#36f' : 'transparent',
+              borderRadius: isSel ? 15 : 0,
+            },
+            text: {
+              color: isSel ? '#fff' : '#36f',
+              fontWeight: 'bold',
+            },
+          },
         };
       }
     }
 
     return marks;
-  };
+  }, [calendarMonth, uniqueDates, selectedDate]);
 
-  const goToToday = () => {
-    setCalendarMonth(todayString.slice(0,7) + '-01');
-    setSelectedDate(todayString);
-  };
+  // Get max allowed month (current month)  
+  const maxMonth = useMemo(() => todayIso.slice(0, 7), [todayIso]);
+
+  const goToToday = useCallback(() => {
+    const todayMonth = todayIso.slice(0, 7) + '-01';
+    setCalendarMonth(todayMonth);
+    setSelectedDate(todayIso);
+    setShowDatePicker(false);
+  }, [todayIso]);
+
+  const handleDayPress = useCallback((day) => {
+    if (uniqueDatesRef.current.includes(day.dateString)) {
+      setSelectedDate(day.dateString);
+      setShowDatePicker(false);
+    }
+  }, []);
+
+  const handleMonthChange = useCallback((month) => {
+    const newMonthStr = `${month.year}-${String(month.month).padStart(2, '0')}`;
+    if (newMonthStr <= maxMonth) {
+      setCalendarMonth(`${newMonthStr}-01`);
+    }
+  }, [maxMonth]);
+
+  // Check if today has no measurements
+  const todayRecords = useMemo(() => getLatestRecords(flatData, selectedDate), [flatData, selectedDate]);
+  const hasNoMeasurements = Object.keys(todayRecords).length === 0;
+  const isToday = selectedDate === todayIso;
 
   return (
-    <View style={{ flex:1, backgroundColor:'#F8F9FA' }}>
-      <SafeAreaView style={styles.safeArea}>
+    <View style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
+      <SafeAreaView style={sharedStyles.safeArea}>
         <Header title="Home" />
         <StatusBar barStyle="dark-content" />
 
-        {/* Connection + Title */}
-        <View style={styles.connectionContainer}>
-          <Text style={styles.connectionText}>You are</Text>
-          <Text style={styles.connectedText}>Connected</Text>
-        </View>
-        <Text style={styles.headerText}>Parameter</Text>
+        {/* <View style={homeStyles.connectionContainer}>
+          <Text style={homeStyles.connectionText}>You are </Text>
+          <Text style={[
+            homeStyles.connectedText,
+            { color: isConnected ? '#00CC00' : '#999999' }
+          ]}>
+            {isConnected ? 'Connected' : 'Not Connected'}
+          </Text>
+        </View> */}
 
-        {/* Date Picker Trigger */}
-        <View style={styles.dateTriggerWrapper}>
+        {/* Date Picker */}
+        <View style={homeStyles.dateTriggerWrapper}>
           <TouchableOpacity
-            style={styles.datePickerButton}
+            style={homeStyles.datePickerButton}
             onPress={() => setShowDatePicker(true)}
           >
-            <Text style={styles.datePickerText}>
+            <Text style={homeStyles.datePickerText}>
               Date: {formatDisplayDate(selectedDate)}
             </Text>
-            <Text style={styles.datePickerIcon}>📅</Text>
+            <Text style={homeStyles.datePickerIcon}>📅</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Modal Calendar */}
         <Modal
           visible={showDatePicker}
           transparent
-          animationType="fade"
+          animationType="slide"
           onRequestClose={() => setShowDatePicker(false)}
         >
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPressOut={() => setShowDatePicker(false)}
-          >
-            <View style={styles.modalContainer}>
-              <TouchableOpacity
-                onPress={goToToday}
-                style={styles.todayButton}
-              >
-                <Text style={styles.todayButtonText}>Today</Text>
-              </TouchableOpacity>
+          <View style={homeStyles.modalBackdrop}>
+            <TouchableOpacity
+              style={homeStyles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setShowDatePicker(false)}
+            />
+            <View style={homeStyles.modalContainer}>
+              <View style={homeStyles.modalHeader}>
+                <TouchableOpacity
+                  onPress={goToToday}
+                  style={homeStyles.todayButton}
+                >
+                  <Text style={homeStyles.todayButtonText}>Today</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(false)}
+                  style={homeStyles.closeButton}
+                >
+                  <Text style={homeStyles.closeButtonText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+
               <Calendar
                 current={calendarMonth}
-                onMonthChange={(m) =>
-                  setCalendarMonth(`${m.year}-${String(m.month).padStart(2,'0')}-01`)
-                }
-                onDayPress={(day) => {
-                  if (uniqueDates.includes(day.dateString)) {
-                    setSelectedDate(day.dateString);
-                    setShowDatePicker(false);
-                  }
-                }}
-                markedDates={generateMarkedDates()}
+                onMonthChange={handleMonthChange}
+                onDayPress={handleDayPress}
+                markedDates={markedDates}
+                markingType="custom"
                 disableAllTouchEventsForDisabledDays={true}
+                enableSwipeMonths={true}
+                hideExtraDays={true}
+                firstDay={1}
+                maxDate={todayIso}
+                disableMonthChange={false}
+                hideArrows={false}
+                disableArrowLeft={false}
+                disableArrowRight={calendarMonth && calendarMonth.slice(0, 7) >= maxMonth}
                 theme={{
+                  backgroundColor: '#ffffff',
+                  calendarBackground: '#ffffff',
+                  textSectionTitleColor: '#b6c1cd',
+                  selectedDayBackgroundColor: 'transparent',
+                  selectedDayTextColor: '#36f',
                   todayTextColor: '#09f',
-                  selectedDayBackgroundColor: '#09f',
-                  selectedDayTextColor: '#fff',
-                  disabledTextColor: '#ccc',
+                  dayTextColor: '#2d4150',
+                  textDisabledColor: '#d9e1e8',
+                  arrowColor: '#09f',
+                  disabledArrowColor: '#d9e1e8',
+                  monthTextColor: '#2d4150',
+                  indicatorColor: '#09f',
+                  textDayFontFamily: 'System',
+                  textMonthFontFamily: 'System',
+                  textDayHeaderFontFamily: 'System',
+                  textDayFontSize: 16,
+                  textMonthFontSize: 18,
+                  textDayHeaderFontSize: 14
                 }}
+                style={homeStyles.calendar}
               />
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
 
         {/* Filters */}
-        <View style={styles.filtersContainer}>
-          {['All','Normal','Abnormal'].map((f) => (
+        <View style={homeStyles.filtersContainer}>
+          {['All', 'Normal', 'Abnormal'].map(f => (
             <TouchableOpacity
               key={f}
               style={[
-                styles.filterButton,
-                statusFilter === f && styles.activeFilter,
+                homeStyles.filterButton,
+                statusFilter === f && homeStyles.activeFilter
               ]}
               onPress={() => setStatusFilter(f)}
             >
-              <Text style={styles.filterText}>{f}</Text>
+              <Text style={[
+                homeStyles.filterText,
+                statusFilter === f && homeStyles.activeFilterText
+              ]}>
+                {f}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Parameter Boxes */}
+        {/* Two-column grid */}
         <ScrollView
-          style={styles.parametersContainer}
-          contentContainerStyle={styles.parametersContentContainer}
+          style={homeStyles.parametersContainer}
+          contentContainerStyle={homeStyles.parametersContentContainer}
+          showsVerticalScrollIndicator={false}
         >
-          {Object.values(latestRecords)
-            .filter(r => statusFilter==='All' || r.status===statusFilter)
-            .map((record, i) => (
-              <TouchableOpacity key={i} style={styles.parameterBox}>
-                <View style={styles.parameterHeader}>
-                  <Text style={styles.parameterTitle}>
-                    {record.parameter}
-                  </Text>
-                  <Text style={styles.parameterArrow}>›</Text>
-                </View>
-                <View style={styles.parameterValueContainer}>
-                  <Text style={styles.parameterValue}>
-                    {record.value}
-                    <Text style={styles.parameterUnit}> {record.unit}</Text>
-                  </Text>
-                  <Text
-                    style={[
-                      styles.parameterStatus,
-                      record.status==='Normal'
-                        ? styles.normalStatus
-                        : styles.abnormalStatus
-                    ]}
-                  >
-                    {record.status}
-                  </Text>
-                </View>
-                <View style={styles.historyContainer}>
-                  {record.history.map((h,i2)=>(
-                    <Text key={i2} style={styles.historyItem}>
-                      • {h.value} {h.unit}, {formatTime(h.timestamp)}
+          {isToday && hasNoMeasurements ? (
+            <View style={homeStyles.noMeasurementContainer}>
+              <Text style={homeStyles.noMeasurementText}>You have no measurement yet</Text>
+            </View>
+          ) : (
+            Object.entries(latestRecords)
+              .filter(([param, rec]) => statusFilter === 'All' || rec.status === statusFilter)
+              .map(([param, rec]) => (
+                <TouchableOpacity
+                  key={param}
+                  style={homeStyles.parameterBox}
+                  onPress={() =>
+                    router.push({
+                      pathname: 'parameter',
+                      params: { parameter: param }
+                    })
+                  }
+                  activeOpacity={0.7}
+                >
+                  <View style={homeStyles.parameterHeader}>
+                    <Text style={homeStyles.parameterTitle}>{param}</Text>
+                    <Text style={homeStyles.parameterArrow}>›</Text>
+                  </View>
+                  <View style={homeStyles.parameterValueContainer}>
+                    <Text style={homeStyles.parameterValue}>
+                      {rec.value}
+                      <Text style={homeStyles.parameterUnit}> {rec.unit}</Text>
                     </Text>
-                  ))}
-                </View>
-                {record.parameter==='QRS Duration' &&
-                 record.status==='Abnormal' && (
-                  <View style={styles.infoBox}>
-                    <Text style={styles.infoTitle}>
-                      QRS duration is prolonged
-                    </Text>
-                    <Text style={styles.infoText}>
-                      which may indicate conduction delay
+                    <Text style={[
+                      homeStyles.parameterStatus,
+                      rec.status === 'Normal'
+                        ? homeStyles.normalStatus
+                        : homeStyles.abnormalStatus
+                    ]}>
+                      {rec.status}
                     </Text>
                   </View>
-                )}
-              </TouchableOpacity>
-            ))}
+                  <View style={homeStyles.historyContainer}>
+                    {rec.history.map((h, j) => (
+                      <Text key={j} style={homeStyles.historyItem}>
+                        • {h.value} {h.unit}, {formatTime(h.rawTs)}
+                      </Text>
+                    ))}
+                  </View>
+                  {/* {rec.status === 'Abnormal' && (
+                    <View style={homeStyles.infoBox}>
+                      <Text style={homeStyles.infoTitle}>
+                        {getAbnormalMessage(param, parseFloat(rec.value))}
+                      </Text>
+                    </View>
+                  )} */}
+                </TouchableOpacity>
+              ))
+          )}
         </ScrollView>
-
-        
       </SafeAreaView>
       <NavigationBar />
     </View>
   );
 }
-
-const windowWidth = Dimensions.get('window').width;
-const boxWidth = (windowWidth - 40) / 2;
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  connectionContainer: {
-    flexDirection: 'row',
-    padding: 15,
-  },
-  connectionText: { fontSize: 14, color: '#333' },
-  connectedText: { fontSize: 14, color: '#0A0', fontWeight: 'bold' },
-  headerText: { fontSize: 24, fontWeight: 'bold', paddingHorizontal: 15 },
-  dateTriggerWrapper: { padding: 15 },
-  datePickerButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: '#DDD',
-    backgroundColor: '#FFF',
-  },
-  datePickerText: { fontSize: 16, color: '#333' },
-  datePickerIcon: { fontSize: 18, color: '#333' },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    width: '90%',
-    backgroundColor: '#FFF',
-    borderRadius: 10,
-    padding: 10,
-  },
-  todayButton: {
-    alignSelf: 'flex-end',
-    marginBottom: 10,
-    padding: 8,
-    backgroundColor: '#09f',
-    borderRadius: 6,
-  },
-  todayButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  filtersContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 15,
-    marginVertical: 10,
-  },
-  filterButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    backgroundColor: '#EEE',
-    marginRight: 10,
-  },
-  activeFilter: { backgroundColor: '#09f' },
-  filterText: { fontSize: 14, color: '#333' },
-  parametersContainer: {
-    flex: 1,
-    padding: 10,
-  },
-  parametersContentContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  parameterBox: {
-    width: boxWidth,
-    backgroundColor: '#FFF',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  parameterHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  parameterTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#36f',
-  },
-  parameterArrow: {
-    fontSize: 18,
-    color: '#36f',
-  },
-  parameterValueContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  parameterValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginRight: 10,
-  },
-  parameterUnit: {
-    fontSize: 18,
-    fontWeight: 'normal',
-    color: '#666',
-  },
-  parameterStatus: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  normalStatus: {
-    color: '#00CC00',
-  },
-  abnormalStatus: {
-    color: '#FF0000',
-  },
-  historyContainer: {
-    marginTop: 5,
-  },
-  historyItem: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
-  },
-  infoBox: {
-    backgroundColor: '#E8F4FF',
-    borderRadius: 5,
-    padding: 10,
-    marginTop: 10,
-  },
-  infoTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#09f',
-  },
-  infoText: {
-    fontSize: 12,
-    color: '#09f',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    width: '90%',
-    backgroundColor: '#FFF',
-    borderRadius: 10,
-    padding: 10,
-    elevation: 10,
-  },  
-  todayButton: {
-    alignSelf: 'flex-end',
-    marginBottom: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    backgroundColor: '#09f',
-    borderRadius: 8,
-  },
-  todayButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },  
-});

@@ -42,22 +42,22 @@ export default function ECGScreen() {
                 if (characteristic?.value) {
                   const base64 = characteristic.value;
                   const buffer = Buffer.from(base64, 'base64');
-                  
+
                   // Baca isi buffer dan diubah jadi array lead 1 dan lead 2
                   // Indeks 0 berarti sample pertama, indeks 1 sample kedua, dst
                   const lead1 = [];
                   const lead2 = [];
-                  for (let i = 0; i <= buffer.length - 6; i += 6){
+                  for (let i = 0; i <= buffer.length - 6; i += 6) {
                     // Gabung 3 byte buat lead 1
-                    let valLead1 = (buffer[i] << 16) | (buffer[i+1] << 8) | buffer[i+2]
+                    let valLead1 = (buffer[i] << 16) | (buffer[i + 1] << 8) | buffer[i + 2]
                     if (valLead1 & 0x800000) valLead1 |= 0xFF000000;
-                  
+
                     // Gabung 3 byte buat lead 2
-                    let valLead2 = (buffer[i+3] << 16) | (buffer[i+4] << 8) | buffer[i+5]
+                    let valLead2 = (buffer[i + 3] << 16) | (buffer[i + 4] << 8) | buffer[i + 5]
                     if (valLead2 & 0x800000) valLead2 |= 0xFF000000;
-                    
+
                     // Masukin nilai ke array
-                    const index = i/6;
+                    const index = i / 6;
                     lead1[index] = valLead1;
                     lead2[index] = valLead2;
                   }

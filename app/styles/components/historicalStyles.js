@@ -1,0 +1,268 @@
+import { StyleSheet, Dimensions, Platform, StatusBar } from 'react-native';
+import { theme } from '../theme';
+
+const { width } = Dimensions.get('window');
+
+export const historicalStyles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: '#F8F9FA',
+    },
+    pageTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginHorizontal: 16,
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    dateSpanWrapper: {
+        paddingHorizontal: 15,
+        marginVertical: 10,
+    },
+    dateSpanButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 25,
+        borderWidth: 1,
+        borderColor: '#DDD',
+        backgroundColor: '#FFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    dateSpanContent: {
+        flex: 1,
+    },
+    dateSpanLabel: {
+        fontSize: 12,
+        color: '#666',
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    dateSpanValue: {
+        fontSize: 16,
+        color: '#333',
+        fontWeight: '500',
+    },
+    datePickerIcon: {
+        fontSize: 18,
+        color: '#333',
+    },
+    modalBackdrop: {
+        flex: 1,
+        justifyContent: 'flex-end',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalContainer: {
+        backgroundColor: '#FFF',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: 34,
+        maxHeight: '80%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E5E5',
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    todayButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        backgroundColor: '#09f',
+        borderRadius: 20,
+        marginRight: 12,
+    },
+    todayButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 14,
+    },
+    selectionIndicatorContainer: {
+        backgroundColor: '#F0F8FF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 15,
+        borderWidth: 1,
+        borderColor: '#09f',
+    },
+    selectionIndicator: {
+        fontSize: 12,
+        color: '#09f',
+        fontWeight: '600',
+    },
+    closeButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+    },
+    closeButtonText: {
+        color: '#09f',
+        fontWeight: '600',
+        fontSize: 16,
+    },
+    calendar: {
+        paddingHorizontal: 10,
+    },
+    tableContainer: {
+        backgroundColor: theme.colors.surface,
+        marginHorizontal: 16,
+        borderRadius: 12,
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+        overflow: 'hidden',
+    },
+    tableRow: {
+        flexDirection: 'row',
+        paddingVertical: 12,
+        paddingHorizontal: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    tableHeader: {
+        backgroundColor: theme.colors.background,
+        borderBottomWidth: 2,
+        borderBottomColor: theme.colors.border,
+    },
+    evenRow: {
+        backgroundColor: theme.colors.background,
+    },
+    tableBody: {
+        maxHeight: 400,
+    },
+    headerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    headerText: {
+        fontSize: 14,
+        fontFamily: theme.fonts.semiBold,
+        fontWeight: theme.fonts.weights.semiBold,
+        color: theme.colors.text,
+    },
+    cellText: {
+        fontSize: 13,
+        fontFamily: theme.fonts.regular,
+        color: theme.colors.text,
+    },
+    cell: {
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+    },
+    colDate: { flex: 2.5 },
+    colSmall: { flex: 1 },
+    colPlot: { flex: 1 },
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    pager: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: theme.colors.background,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+    },
+    pagerButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: theme.colors.surface,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    pagerButtonDisabled: {
+        backgroundColor: theme.colors.background,
+    },
+    pagerInfo: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    pagerText: {
+        fontSize: 13,
+        fontFamily: theme.fonts.medium,
+        color: theme.colors.textSecondary,
+        fontWeight: '500',
+    },
+    // Patient selection styles
+    patientWrapper: {
+        paddingHorizontal: 15,
+        marginBottom: 10,
+    },
+    patientButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 25,
+        borderWidth: 1,
+        borderColor: '#DDD',
+        backgroundColor: '#FFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    patientContent: {
+        flex: 1,
+    },
+    patientLabel: {
+        fontSize: 12,
+        color: '#666',
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    patientValue: {
+        fontSize: 16,
+        color: '#333',
+        fontWeight: '500',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#333',
+    },
+    patientsList: {
+        maxHeight: 300,
+        paddingVertical: 10,
+    },
+    patientOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    patientName: {
+        fontSize: 16,
+        color: '#333',
+        fontWeight: '500',
+    },
+});

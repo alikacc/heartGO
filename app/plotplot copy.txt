@@ -1,0 +1,316 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  ScrollView,
+} from 'react-native';
+import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import useECGAnalysis from './lib/analysis'; // Updated to use the new analysis hook
+
+/** ECG paper specs **/
+const SMALL_SQ = 3.8;
+const LARGE_EVERY = 5;
+const MM_PER_MV = 10;
+const MM_PER_SEC = 25;
+const SAMPLING_RATE = 320;
+
+/** Header height & duration **/
+const HEADER_H = 100;
+
+/** Lead labels **/
+const LEAD_LABELS = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF'];
+
+export default function ECGWithGrid() {
+  const router = useRouter();
+
+  // 1) Fixed countdown timer using setInterval instead of requestAnimationFrame
+  const [timer, setTimer] = useState(DURATION_SEC);
+  const [shouldStopBLE, setShouldStopBLE] = useState(false);
+  const intervalRef = useRef(null);
+  const startTimeRef = useRef(null);
+  const { id, recordingTime } = useLocalSearchParams();
+  const DURATION_SEC = parseInt(recordingTime) || 30; // Use user input or fallback to 30
+
+  useEffect(() => {
+    // Record the start time
+    startTimeRef.current = Date.now();
+
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    // Set up interval that updates every 100ms for smoother countdown
+    intervalRef.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      const remaining = Math.max(0, DURATION_SEC - elapsed);
+
+      setTimer(remaining);
+
+      // When timer reaches 0, navigate to historical page
+      if (remaining === 0) {
+        clearInterval(intervalRef.current);
+        setShouldStopBLE(true);
+        // Navigate to historical.js page
+        setTimeout(() => {
+          router.push('/summary');
+        }, 500);
+      }
+    }, 100); // Update every 100ms for smooth countdown
+
+    // Cleanup interval on unmount
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [DURATION_SEC]); // Empty dependency array so this only runs once on mount
+
+  // 2) Get filtered samples from analysis hook - now handles both leads
+  const analysisData = useECGAnalysis(id, shouldStopBLE);
+  const {
+    filteredLead1 = [],
+    filteredLead2 = [],
+    filteredLead3 = [],
+    filteredAVR = [],
+    filteredAVL = [],
+    filteredAVF = [],
+    isProcessing = false
+  } = analysisData || {};
+
+  // 3) Prepare for plotting - USE the recent data variables
+  const maxPts = SAMPLING_RATE * DURATION_SEC;
+  const recentLead1 = (filteredLead1 || []).slice(-maxPts);
+  const recentLead2 = (filteredLead2 || []).slice(-maxPts);
+  const recentLead3 = (filteredLead3 || []).slice(-maxPts);
+  const recentAVR = (filteredAVR || []).slice(-maxPts);
+  const recentAVL = (filteredAVL || []).slice(-maxPts);
+  const recentAVF = (filteredAVF || []).slice(-maxPts);
+
+  // Update leadData to use recent data
+  const leadData = useMemo(() => {
+    const leads = [recentLead1, recentLead2, recentLead3, recentAVR, recentAVL, recentAVF];
+    return LEAD_LABELS.map((label, index) => {
+      const data = leads[index] || [];
+      return data.map((v, i) => ({ Time: i, [`ECG_${label}`]: v }));
+    });
+  }, [
+    recentLead1.length,
+    recentLead2.length,
+    recentLead3.length,
+    recentAVR.length,
+    recentAVL.length,
+    recentAVF.length
+  ]);
+
+  // Check if we have any data to display
+  const hasData = filteredLead1.length > 0 && filteredLead2.length > 0;
+
+  if (!hasData) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.placeholder}>
+          {isProcessing ? 'Processing ECG signal…' : 'Initializing ECG…'}
+        </Text>
+      </View>
+    );
+  }
+
+  // 4) Layout & pagination - use the longer of the two leads for calculations
+  const maxLength = Math.max(
+    filteredLead1.length,
+    filteredLead2.length,
+    filteredLead3.length,
+    filteredAVR.length,
+    filteredAVL.length,
+    filteredAVF.length
+  );
+  const { width: W, height: H } = Dimensions.get('window');
+  const plotH = H - HEADER_H;
+  const leadH = plotH / 6; // Divide plot area into 6 equal sections
+  const pxPSec = MM_PER_SEC * SMALL_SQ;
+  const pxPMv = MM_PER_MV * SMALL_SQ;
+  const totalS = (maxLength - 1) / SAMPLING_RATE;
+  const pages = Math.ceil(totalS / (W / pxPSec));
+  const vCount = Math.ceil(W / SMALL_SQ);
+  const hCount = Math.ceil(plotH / SMALL_SQ);
+
+  return (
+    <View style={styles.container}>
+      {/* header */}
+      <View style={styles.header}>
+        <View style={styles.headerItem}>
+          <Ionicons name="heart" size={28} color="red" />
+          <Text style={styles.headerText}>-- BPM</Text>
+        </View>
+        <View style={styles.headerItem}>
+          <View style={[styles.timerCircle, timer <= 5 && styles.timerUrgent]}>
+            <Text style={[styles.timerText, timer <= 5 && styles.timerTextUrgent]}>
+              {timer}
+            </Text>
+          </View>
+          <Text style={styles.headerText}>Seconds</Text>
+        </View>
+        <View style={styles.headerItem}>
+          <Ionicons name="wifi" size={28} color="green" />
+          <Text style={styles.headerText}>
+            {isProcessing ? 'Processing...' : 'Great Signal'}
+          </Text>
+        </View>
+      </View>
+
+      {/* ECG Plot */}
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        style={{ flex: 1 }}
+      >
+        {Array.from({ length: pages }).map((_, pi) => {
+          const t0 = pi * (W / pxPSec);
+
+          return (
+            <Svg key={`p${pi}`} width={W} height={plotH}>
+              {/* Grid lines */}
+              {Array.from({ length: vCount }).map((__, i) => (
+                <Line
+                  key={`v${pi}-${i}`}
+                  x1={i * SMALL_SQ} y1={0}
+                  x2={i * SMALL_SQ} y2={plotH}
+                  stroke={i % LARGE_EVERY === 0 ? '#bbb' : '#eee'}
+                  strokeWidth={i % LARGE_EVERY === 0 ? 1 : 0.5}
+                />
+              ))}
+              {Array.from({ length: hCount }).map((__, i) => (
+                <Line
+                  key={`h${pi}-${i}`}
+                  x1={0} y1={i * SMALL_SQ}
+                  x2={W} y2={i * SMALL_SQ}
+                  stroke={i % LARGE_EVERY === 0 ? '#bbb' : '#eee'}
+                  strokeWidth={i % LARGE_EVERY === 0 ? 1 : 0.5}
+                />
+              ))}
+
+              {/* Plot each lead */}
+              {LEAD_LABELS.map((label, leadIndex) => {
+                const baseY = (leadIndex * leadH) + (leadH / 2);
+                let first = true;
+
+                // Get the appropriate data for this lead
+                const currentLeadData = leadData[leadIndex];
+
+                // Skip if no data for this lead
+                if (!currentLeadData || currentLeadData.length === 0) {
+                  return (
+                    <React.Fragment key={`lead-${leadIndex}`}>
+                      <SvgText
+                        x={10}
+                        y={leadIndex * leadH + 20}
+                        fontSize={16}
+                        fontWeight="bold"
+                        fill="#333"
+                      >
+                        {label}
+                      </SvgText>
+                    </React.Fragment>
+                  );
+                }
+
+                const d = currentLeadData
+                  .map(pt => {
+                    const t = pt.Time / SAMPLING_RATE;
+                    if (t < t0 || t > t0 + W / pxPSec) return null;
+                    const x = (t - t0) * pxPSec;
+                    const y = baseY - pt[`ECG_${label}`] * pxPMv;
+                    const cmd = `${first ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+                    first = false;
+                    return cmd;
+                  })
+                  .filter(Boolean)
+                  .join(' ');
+
+                return (
+                  <React.Fragment key={`lead-${leadIndex}`}>
+                    {/* Lead label with different colors for actual vs placeholder data */}
+                    <SvgText
+                      x={10}
+                      y={leadIndex * leadH + 20}
+                      fontSize={16}
+                      fontWeight="bold"
+                      fill={leadIndex <= 1 ? "#333" : "#999"} // Darker for real data, lighter for placeholder
+                    >
+                      {label}
+                    </SvgText>
+                    {/* ECG waveform with different colors for actual vs placeholder data */}
+                    <Path
+                      d={d}
+                      stroke="grey" // Black for real data, light grey for placeholder
+                      strokeWidth={1}
+                      fill="none"
+                    />
+                  </React.Fragment>
+                );
+              })}
+            </Svg>
+          );
+        })}
+      </ScrollView>
+
+      {/* Show completion message when timer reaches 0 */}
+      {timer === 0 && (
+        <View style={styles.completionOverlay}>
+          <Text style={styles.completionText}>Recording Complete!</Text>
+          <Text style={styles.completionSubtext}>Redirecting to history...</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+  header: { height: HEADER_H, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderColor: '#ddd' },
+  headerItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  headerText: { marginTop: 4, fontSize: 14, color: '#333' },
+  timerCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#333',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  timerUrgent: {
+    borderColor: '#ff4444',
+    backgroundColor: '#ffeeee',
+  },
+  timerText: { fontSize: 18, fontWeight: 'bold' },
+  timerTextUrgent: { color: '#ff4444' },
+  placeholder: { flex: 1, textAlign: 'center', marginTop: 20, color: '#999', fontStyle: 'italic' },
+  completionOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  completionText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 10,
+  },
+  completionSubtext: {
+    fontSize: 16,
+    color: '#ccc',
+  },
+});

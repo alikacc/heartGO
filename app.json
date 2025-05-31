@@ -68,7 +68,9 @@
             ]
           }
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-font"
     ],
     "extra": {
       "eas": {

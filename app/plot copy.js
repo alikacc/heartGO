@@ -2,51 +2,43 @@ import React from 'react'
 import { View, Button, Dimensions, StyleSheet } from 'react-native'
 import * as Print from 'expo-print'
 import { shareAsync } from 'expo-sharing'
-import ecgData from './ecg.json'  // your ECG JSON
+import ecgData from './csvjson.json'  // your ECG JSON
 
 /** Constants **/
-const SMALL_SQ = 8    // px per 1 mm
-const LARGE_SQ = SMALL_SQ * 5   // px per 5 mm
-const FRAME_W = LARGE_SQ * 5   // px per 5 large cols (25 mm = 1 s)
-const FRAME_H = LARGE_SQ * 10  // px per 10 large rows (50 mm)
-const COLS = 8    // frames per row
-const ROWS = 4    // rows per page
-const PX_PER_SEC = 25 * SMALL_SQ  // 25 mm/s → px/s
-const PX_PER_MV = 10 * SMALL_SQ  // 10 mm/mV → px/mV
-const SAMPLE_RATE = 320  // Hz
-const STROKE = 2
-const HALF_STROKE = STROKE / 2
+const SMALL_SQ      = 8    // px per 1 mm
+const LARGE_SQ      = SMALL_SQ * 5   // px per 5 mm
+const FRAME_W       = LARGE_SQ * 5   // px per 5 large cols (25 mm = 1 s)
+const FRAME_H       = LARGE_SQ * 10  // px per 10 large rows (50 mm)
+const COLS          = 8    // frames per row
+const ROWS          = 4    // rows per page
+const PX_PER_SEC    = 25 * SMALL_SQ  // 25 mm/s → px/s
+const PX_PER_MV     = 10 * SMALL_SQ  // 10 mm/mV → px/mV
+const SAMPLE_RATE   = 320  // Hz
+const STROKE        = 2
+const HALF_STROKE   = STROKE / 2
 
-export default function ECGReportScreen({ filteredLead1Data = null }) {
+export default function ECGReportScreen() {
   const { width: screenW } = Dimensions.get('window')
   const pageW = FRAME_W * COLS
   const pageH = FRAME_H * ROWS
   const framesPerPage = COLS * ROWS
 
-  // Use filtered data if provided, otherwise fall back to ecgData
-  const ecgDataToUse = filteredLead1Data ?
-    filteredLead1Data.map((value, index) => ({
-      Time: index, // Sample index as time
-      ECG_Lead1: value / 1000 // Convert back to volts if needed
-    })) :
-    ecgData;
-
   // total number of 1-second frames in data
-  const totalFrames = Math.floor(ecgDataToUse[ecgDataToUse.length - 1].Time / SAMPLE_RATE) + 1
+  const totalFrames = Math.floor(ecgData[ecgData.length - 1].Time / SAMPLE_RATE) + 1
   const numPages = Math.ceil(totalFrames / framesPerPage)
 
   // Precompute absolute X for each sample
-  const xs = ecgDataToUse.map(pt => (pt.Time / SAMPLE_RATE) * PX_PER_SEC)
+  const xs = ecgData.map(pt => (pt.Time / SAMPLE_RATE) * PX_PER_SEC)
 
   // Build HTML pages
   const pagesHtml = Array.from({ length: numPages }).map((_, pageIdx) => {
     const startFrame = pageIdx * framesPerPage
-    const endFrame = startFrame + framesPerPage
+    const endFrame   = startFrame + framesPerPage
 
     // 1) Build ECG <path> for this page
     let prevFrame = -1
-    const commands = ecgDataToUse.reduce((acc, pt, i) => {
-      const tSec = pt.Time / SAMPLE_RATE
+    const commands = ecgData.reduce((acc, pt, i) => {
+      const tSec     = pt.Time / SAMPLE_RATE
       const frameIdx = Math.floor(tSec)
       if (frameIdx < startFrame || frameIdx >= endFrame) return acc
 
@@ -54,7 +46,7 @@ export default function ECGReportScreen({ filteredLead1Data = null }) {
       const row = Math.floor((frameIdx - startFrame) / COLS)
       const xInFrame = (tSec - frameIdx) * PX_PER_SEC
       const x = col * FRAME_W + xInFrame
-      const y = row * FRAME_H + FRAME_H / 2 - (pt.ECG_Lead1 * 1000) * PX_PER_MV
+      const y = row * FRAME_H + FRAME_H/2 - (pt.ECG_Lead1 * 1000) * PX_PER_MV
 
       acc.push((frameIdx !== prevFrame ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1))
       prevFrame = frameIdx
@@ -95,7 +87,7 @@ export default function ECGReportScreen({ filteredLead1Data = null }) {
     return `
       <div class="page">
         <div class="header">
-          Enhanced Filter · Mains Filter: 50 Hz · Scale: 25 mm/s, 10 mm/mV · Lead I
+          Enhanced Filter · Mains Filter: 50 Hz · Scale: 25 mm/s, 10 mm/mV
         </div>
         <svg width="${pageW}" height="${pageH}" xmlns="http://www.w3.org/2000/svg">
           ${grid.join('\n')}
@@ -139,10 +131,7 @@ export default function ECGReportScreen({ filteredLead1Data = null }) {
 
   return (
     <View style={styles.container}>
-      <Button
-        title={filteredLead1Data ? "Generate Filtered ECG PDF Report" : "Generate ECG PDF Report"}
-        onPress={handlePrint}
-      />
+      <Button title="Generate ECG PDF Report" onPress={handlePrint}/>
     </View>
   )
 }

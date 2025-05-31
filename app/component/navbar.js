@@ -1,20 +1,21 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { theme } from '../styles/theme';
 
-interface NavigationBarProps {
-  onHomePress?: () => void;
-  onPlayPress: () => void;
-  onStatsPress?: () => void;
-}
-
-const NavigationBar: React.FC<NavigationBarProps> = ({
+const NavigationBar = ({
   onHomePress,
   onPlayPress,
   onStatsPress,
 }) => {
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Determine active state based on current path - each button only active on its target page
+  const isHomeActive = pathname === '/home';
+  const isPlayActive = pathname === '/scan_device';
+  const isStatsActive = pathname === '/historical';
 
   return (
     <View style={styles.footer}>
@@ -23,12 +24,19 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
         style={styles.footerButton}
         onPress={onHomePress ?? (() => router.push('/home'))}
       >
-        <Ionicons name="home-outline" size={28} color="#333" />
+        <Ionicons
+          name={isHomeActive ? "home" : "home-outline"}
+          size={28}
+          color={isHomeActive ? theme.colors.primary : theme.colors.text}
+        />
       </TouchableOpacity>
 
       {/* Play Button */}
-      <TouchableOpacity style={styles.playButton} onPress={onPlayPress ?? (() => router.push('/scan_device'))}>
-        <Ionicons name="play" size={32} color="#fff" />
+      <TouchableOpacity
+        style={styles.playButton}
+        onPress={onPlayPress ?? (() => router.push('/scan_device'))}
+      >
+        <Ionicons name="play" size={32} color={theme.colors.primary} />
       </TouchableOpacity>
 
       {/* Stats Button */}
@@ -36,7 +44,11 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
         style={styles.footerButton}
         onPress={onStatsPress ?? (() => router.push('/historical'))}
       >
-        <Ionicons name="stats-chart-outline" size={28} color="#333" />
+        <Ionicons
+          name={isStatsActive ? "stats-chart" : "stats-chart-outline"}
+          size={28}
+          color={isStatsActive ? theme.colors.primary : theme.colors.text}
+        />
       </TouchableOpacity>
     </View>
   );
@@ -44,13 +56,18 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
 
 const styles = StyleSheet.create({
   footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#EEE',
-    backgroundColor: '#FFF',
-    paddingVertical: 10,
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    paddingVertical: theme.spacing.sm + 2,
+    paddingBottom: 34, // Safe area for iOS
   },
   footerButton: {
     flex: 1,
@@ -59,11 +76,13 @@ const styles = StyleSheet.create({
   playButton: {
     width: 64,
     height: 64,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
     borderRadius: 32,
-    backgroundColor: '#09f',
+    backgroundColor: theme.colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 10,
+    marginHorizontal: theme.spacing.sm + 2,
   },
 });
 
