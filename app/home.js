@@ -277,6 +277,19 @@ export default function Home() {
     loadData();
   }, [loadData]));
 
+  // Console log the fetched database data for the selected date
+  useEffect(() => {
+    if (flatData.length > 0 && selectedDate) {
+      const filteredDataForDate = flatData.filter(item => item.dateKey === selectedDate);
+      const latestRecordsForDate = getLatestRecords(flatData, selectedDate);
+
+      console.log(`📅 Fetched database data for date: ${selectedDate}`);
+      console.log(`📊 Total records for this date: ${filteredDataForDate.length}`);
+      console.log(`📈 Filtered data for ${selectedDate}:`, filteredDataForDate);
+      console.log(`🔗 Latest records for ${selectedDate}:`, latestRecordsForDate);
+    }
+  }, [flatData, selectedDate]);
+
   const uniqueDates = useMemo(() => {
     const dates = getUniqueDates(flatData);
     uniqueDatesRef.current = dates;

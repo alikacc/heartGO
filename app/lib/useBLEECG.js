@@ -73,8 +73,8 @@ export default function useBLEECGNO(deviceId, shouldStop = false) {
 
             // normalize & scale to V (per your formula)
             let max = 0xC35000;
-            let res1 = ((2 * v1 / max) - 1) * (2.4 / 3.5);
-            let res2 = ((2 * v2 / max) - 1) * (2.4 / 3.5);
+            let res1 = ((2 * v1 / max) - 1) * (2.4 / 3.5) * 1000;
+            let res2 = ((2 * v2 / max) - 1) * (2.4 / 3.5) * 1000;
             lead1.push(res1);
             lead2.push(res2);
           }

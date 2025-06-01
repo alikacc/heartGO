@@ -10,18 +10,21 @@ import {
   Modal,
   FlatList,
   SafeAreaView,
+  Button,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
 
 import useECGAnalysis from './lib/analysis';
 import { useUser } from './UserContext';
 import { theme } from './styles/theme';
 import { sharedStyles } from './styles/shared';
 import Header from './component/header';
-import ECGReportScreen from './plot'; // Import the plot component
+import ecgData from './ecg.json'  // your ECG JSON
 
 /** Header height & duration **/
 const HEADER_H = 100;
@@ -44,6 +47,19 @@ const AVAILABLE_TAGS = [
   'Sleep',
   'Stress',
 ];
+
+/** Constants **/
+const SMALL_SQ = 8;    // px per 1 mm
+const LARGE_SQ = SMALL_SQ * 5;   // px per 5 mm
+const FRAME_W = LARGE_SQ * 5;   // px per 5 large cols (25 mm = 1 s)
+const FRAME_H = LARGE_SQ * 10;  // px per 10 large rows (50 mm)
+const COLS = 8;    // frames per row
+const ROWS = 4;    // rows per page
+const PX_PER_SEC = 25 * SMALL_SQ;  // 25 mm/s → px/s
+const PX_PER_MV = 10 * SMALL_SQ;  // 10 mm/mV → px/mV
+const SAMPLE_RATE = 320;  // Hz
+const STROKE = 2;
+const HALF_STROKE = STROKE / 2;
 
 export default function ECGWithGrid() {
   const router = useRouter();
@@ -384,6 +400,9 @@ export default function ECGWithGrid() {
 
   // Function to handle plot download
   const handleDownloadPlot = () => {
+    console.log('📈 Filtered Lead1 data length:', filteredLead1?.length);
+    console.log('📈 Is processed:', isProcessed);
+
     if (!isProcessed || filteredLead1.length === 0) {
       Alert.alert('No Data', 'No filtered data available to plot. Please process the data first.');
       return;
@@ -391,10 +410,161 @@ export default function ECGWithGrid() {
     setShowPlotModal(true);
   };
 
+  // Function to handle PDF generation
+  const handlePDFGeneration = async () => {
+    try {
+      const { width: screenW } = Dimensions.get('window');
+      const pageW = FRAME_W * COLS;
+      const pageH = FRAME_H * ROWS;
+      const framesPerPage = COLS * ROWS;
+
+      // Debug logging to see what data we're using
+      console.log('🔍 Debugging ECG Plot Data:');
+      console.log('Filtered Lead1 available:', !!filteredLead1);
+      console.log('Filtered Lead1 length:', filteredLead1?.length);
+      console.log('First 5 filtered values:', filteredLead1?.slice(0, 5));
+      console.log('Last 5 filtered values:', filteredLead1?.slice(-5));
+
+      // Use filtered data if provided, otherwise fall back to ecgData
+      const ecgDataToUse = filteredLead1 ?
+        filteredLead1.map((value, index) => ({
+          Time: index, // Sample index as time
+          ECG_Lead1: value  // Remove the /1000 here since we'll scale in the plotting
+        })) :
+        ecgData;
+
+      console.log('Using filtered data:', !!filteredLead1);
+      console.log('Data length being plotted:', ecgDataToUse.length);
+      console.log('First 5 points to plot:', ecgDataToUse.slice(0, 5));
+
+      if (!ecgDataToUse || ecgDataToUse.length === 0) {
+        console.error('❌ No data available to plot!');
+        Alert.alert('Error', 'No ECG data available to plot');
+        return;
+      }
+
+      // total number of 1-second frames in data
+      const totalFrames = Math.floor(ecgDataToUse[ecgDataToUse.length - 1].Time / SAMPLE_RATE) + 1;
+      const numPages = Math.ceil(totalFrames / framesPerPage);
+
+      console.log('Total frames:', totalFrames);
+      console.log('Number of pages:', numPages);
+
+      // Precompute absolute X for each sample
+      const xs = ecgDataToUse.map(pt => (pt.Time / SAMPLE_RATE) * PX_PER_SEC);
+
+      // Build HTML pages
+      const pagesHtml = Array.from({ length: numPages }).map((_, pageIdx) => {
+        const startFrame = pageIdx * framesPerPage;
+        const endFrame = startFrame + framesPerPage;
+
+        // 1) Build ECG <path> for this page
+        let prevFrame = -1;
+        let pointsPlotted = 0;
+        console.log(`Building path for page ${pageIdx + 1}/${numPages}`);
+        console.log(`Frame range: ${startFrame} to ${endFrame}`);
+
+        const commands = ecgDataToUse.reduce((acc, pt, i) => {
+          const tSec = pt.Time / SAMPLE_RATE;
+          const frameIdx = Math.floor(tSec);
+          if (frameIdx < startFrame || frameIdx >= endFrame) return acc;
+
+          const col = (frameIdx - startFrame) % COLS;
+          const row = Math.floor((frameIdx - startFrame) / COLS);
+          const xInFrame = (tSec - frameIdx) * PX_PER_SEC;
+          const x = col * FRAME_W + xInFrame;
+          const y = row * FRAME_H + FRAME_H / 2 - (pt.ECG_Lead1 * 1000) * PX_PER_MV;  // Add *1000 here for proper scaling
+
+          pointsPlotted++;
+          if (pointsPlotted <= 5 || pointsPlotted >= ecgDataToUse.length - 5) {
+            console.log(`Point ${pointsPlotted}: x=${x.toFixed(1)}, y=${y.toFixed(1)}, value=${pt.ECG_Lead1}`);
+          }
+
+          acc.push((frameIdx !== prevFrame ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1));
+          prevFrame = frameIdx;
+          return acc;
+        }, []);
+
+        console.log(`Total points plotted on page ${pageIdx + 1}: ${pointsPlotted}`);
+
+        // 2) Grid lines (minor + major)
+        const grid = [];
+        const colsSmall = pageW / SMALL_SQ;
+        const rowsSmall = pageH / SMALL_SQ;
+        for (let i = 0; i <= colsSmall; i++) {
+          const x = i * SMALL_SQ;
+          const major = i % 5 === 0;
+          grid.push(`<line x1="${x}" y1="0" x2="${x}" y2="${pageH}"
+            stroke="${major ? '#bbb' : '#eee'}" stroke-width="${major ? 1 : 0.5}" />`);
+        }
+        for (let j = 0; j <= rowsSmall; j++) {
+          const y = j * SMALL_SQ;
+          const major = j % 5 === 0;
+          grid.push(`<line x1="0" y1="${y}" x2="${pageW}" y2="${y}"
+            stroke="${major ? '#bbb' : '#eee'}" stroke-width="${major ? 1 : 0.5}" />`);
+        }
+
+        // 3) Frame borders inset by half stroke
+        const borders = [];
+        for (let c = 0; c <= COLS; c++) {
+          const x = c * FRAME_W - HALF_STROKE;
+          borders.push(`<line x1="${x}" y1="0" x2="${x}" y2="${pageH}"
+            stroke="#000" stroke-width="${STROKE}" />`);
+        }
+        for (let r = 0; r <= ROWS; r++) {
+          const y = r * FRAME_H - HALF_STROKE;
+          borders.push(`<line x1="0" y1="${y}" x2="${pageW}" y2="${y}"
+            stroke="#000" stroke-width="${STROKE}" />`);
+        }
+
+        // 4) Combine into one SVG
+        return `
+          <div class="page">
+            <div class="header">
+              Enhanced Filter · Mains Filter: 50 Hz · Scale: 25 mm/s, 10 mm/mV · Lead I
+            </div>
+            <svg width="${pageW}" height="${pageH}" xmlns="http://www.w3.org/2000/svg">
+              ${grid.join('\n')}
+              ${borders.join('\n')}
+              <path d="${commands.join(' ')}" fill="none" stroke="#000" stroke-width="1.2"/>
+            </svg>
+          </div>`;
+      }).join('\n');
+
+      // 5) Full HTML with A4 portrait layout
+      const html = `
+        <html>
+          <head>
+            <meta name="viewport" content="width=${pageW}, height=${pageH}" />
+            <style>
+              @page { size: A4 portrait; margin: 0 }
+              body { margin:0; padding:0; }
+              .header {
+                font-family: sans-serif;
+                font-size: 12px;
+                text-align: right;
+                padding: 8px;
+              }
+              .page { page-break-after: always; }
+            </style>
+          </head>
+          <body>
+            ${pagesHtml}
+          </body>
+        </html>`;
+
+      // 6) Print to PDF & share
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+    } catch (err) {
+      console.error('PDF generation error', err);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <SafeAreaView style={sharedStyles.safeArea}>
-        <Header title="ECG Measurement"/>
+        <Header title="ECG Measurement" />
 
         {/* Main Timer Display - Centered */}
         <View style={styles.mainContent}>
@@ -541,6 +711,21 @@ export default function ECGWithGrid() {
                   {isProcessing ? 'Processing...' : 'Download ECG Plot (Lead I)'}
                 </Text>
               </TouchableOpacity>
+
+              {/* New PDF Generation Button */}
+              <TouchableOpacity
+                style={[
+                  styles.secondaryButton,
+                  (!isProcessed || isProcessing) && styles.disabledButton
+                ]}
+                onPress={handlePDFGeneration}
+                disabled={!isProcessed || isProcessing}
+              >
+                <Ionicons name="document-outline" size={20} color={!isProcessed || isProcessing ? '#999' : theme.colors.primary} />
+                <Text style={[styles.secondaryButtonText, (!isProcessed || isProcessing) && { color: '#999' }]}>
+                  {isProcessing ? 'Processing...' : 'Generate ECG PDF Report'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Save Button */}
@@ -575,9 +760,12 @@ export default function ECGWithGrid() {
               <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.plotContainer}>
-            <ECGReportScreen filteredLead1Data={filteredLead1} />
+            <Button
+              title="Generate ECG PDF Report"
+              onPress={handlePDFGeneration}
+            />
           </View>
         </SafeAreaView>
       </Modal>

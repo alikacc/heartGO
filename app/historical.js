@@ -190,6 +190,21 @@ export default function HistoryScreen() {
     return () => { cancelled = true };
   }, [db, currentUser, getCurrentUserTable, todayIso, startDate, endDate, sortField, sortDirection]));
 
+  // Console log the fetched database data for the selected date span
+  useEffect(() => {
+    if (historyData.length > 0 && startDate && endDate) {
+      const filteredDataForDateSpan = historyData.filter(r => r.date >= startDate && r.date <= endDate);
+
+      console.log(`📅 Fetched database data for date span: ${startDate} to ${endDate}`);
+      console.log(`📊 Total records in database: ${historyData.length}`);
+      console.log(`🔍 Records within date span: ${filteredDataForDateSpan.length}`);
+      console.log(`📈 Full historical data:`, historyData);
+      console.log(`📋 Filtered data for date span (${startDate} to ${endDate}):`, filteredDataForDateSpan);
+      console.log(`👤 Current user: ${currentUser?.name}`);
+      console.log(`🗃️ Table name: ${getCurrentUserTable()}`);
+    }
+  }, [historyData, startDate, endDate, currentUser, getCurrentUserTable]);
+
   // Available dates from data
   const availableDates = useMemo(() =>
     [...new Set(historyData.map(r => r.date))].sort(),

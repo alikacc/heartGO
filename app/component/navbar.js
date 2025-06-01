@@ -22,7 +22,7 @@ const NavigationBar = ({
       {/* Home Button */}
       <TouchableOpacity
         style={styles.footerButton}
-        onPress={onHomePress ?? (() => router.push('/home'))}
+        onPress={onHomePress ?? (() => router.push('/plot'))}
       >
         <Ionicons
           name={isHomeActive ? "home" : "home-outline"}
