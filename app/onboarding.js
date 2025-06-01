@@ -14,7 +14,7 @@ const { width, height } = Dimensions.get('window');
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;

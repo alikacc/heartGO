@@ -2,109 +2,183 @@ import React from 'react'
 import { View, Button, Dimensions, StyleSheet } from 'react-native'
 import * as Print from 'expo-print'
 import { shareAsync } from 'expo-sharing'
-import ecgData from './csvjson.json'  // your ECG JSON
+import ecgData from './coco.json'  // your ECG JSON
 
 /** Constants **/
-const SMALL_SQ      = 8    // px per 1 mm
-const LARGE_SQ      = SMALL_SQ * 5   // px per 5 mm
-const FRAME_W       = LARGE_SQ * 5   // px per 5 large cols (25 mm = 1 s)
-const FRAME_H       = LARGE_SQ * 10  // px per 10 large rows (50 mm)
-const COLS          = 8    // frames per row
-const ROWS          = 4    // rows per page
-const PX_PER_SEC    = 25 * SMALL_SQ  // 25 mm/s → px/s
-const PX_PER_MV     = 10 * SMALL_SQ  // 10 mm/mV → px/mV
-const SAMPLE_RATE   = 320  // Hz
-const STROKE        = 2
-const HALF_STROKE   = STROKE / 2
+const SMALL_SQ = 8        // px per 1 mm
+const LARGE_SQ = SMALL_SQ * 5   // px per 5 mm
+const FRAME_W = LARGE_SQ * 5    // 25 mm = 1 s
+const FRAME_H = LARGE_SQ * 10   // 50 mm
+const COLS = 8        // frames per row (1 frame = 1 s)
+const ROWS = 4        // rows per page
+const PX_PER_SEC = 25 * SMALL_SQ  // 25 mm/s → px/s
+const PX_PER_MV = 10 * SMALL_SQ   // 10 mm/mV → px/mV
+const SAMPLE_RATE = 320  // Hz
 
-export default function ECGReportScreen() {
-  const { width: screenW } = Dimensions.get('window')
+export async function generateECGPDF(ecgData) {
   const pageW = FRAME_W * COLS
   const pageH = FRAME_H * ROWS
-  const framesPerPage = COLS * ROWS
 
-  // total number of 1-second frames in data
+  // Ensure pageW is a multiple of LARGE_SQ for complete boxes
+  const completeLargeBoxes = Math.ceil(pageW / LARGE_SQ)
+  const adjustedPageW = completeLargeBoxes * LARGE_SQ
+
+  const framesPerPage = COLS * ROWS  // seconds per page
+
+  // number of full‐second frames in data
   const totalFrames = Math.floor(ecgData[ecgData.length - 1].Time / SAMPLE_RATE) + 1
   const numPages = Math.ceil(totalFrames / framesPerPage)
 
-  // Precompute absolute X for each sample
-  const xs = ecgData.map(pt => (pt.Time / SAMPLE_RATE) * PX_PER_SEC)
+  // Total samples from the JSON data
+  const totalSamples = ecgData.length
 
-  // Build HTML pages
+  // keys and labels for the six leads
+  const leadKeys = [
+    'ECG_Lead1',
+    'ECG_Lead2',
+    'ECG_Lead3',
+    'ECG_aVR',
+    'ECG_aVL',
+    'ECG_aVF'
+  ]
+  const leadLabels = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF']
+
+  // Precompute time in seconds for each sample
+  const timesSec = ecgData.map(pt => pt.Time / SAMPLE_RATE)
+
+  // Build HTML for each page
   const pagesHtml = Array.from({ length: numPages }).map((_, pageIdx) => {
-    const startFrame = pageIdx * framesPerPage
-    const endFrame   = startFrame + framesPerPage
+    const startSecond = pageIdx * framesPerPage
+    const endSecond = startSecond + framesPerPage
 
-    // 1) Build ECG <path> for this page
-    let prevFrame = -1
-    const commands = ecgData.reduce((acc, pt, i) => {
-      const tSec     = pt.Time / SAMPLE_RATE
-      const frameIdx = Math.floor(tSec)
-      if (frameIdx < startFrame || frameIdx >= endFrame) return acc
+    // Divide page into six equal vertical strips
+    const segmentHeight = pageH / 6
 
-      const col = (frameIdx - startFrame) % COLS
-      const row = Math.floor((frameIdx - startFrame) / COLS)
-      const xInFrame = (tSec - frameIdx) * PX_PER_SEC
-      const x = col * FRAME_W + xInFrame
-      const y = row * FRAME_H + FRAME_H/2 - (pt.ECG_Lead1 * 1000) * PX_PER_MV
+    // 1) Generate one <path> per lead
+    const leadPaths = leadKeys.map((key, leadIdx) => {
+      let d = ''
+      let firstPoint = true
 
-      acc.push((frameIdx !== prevFrame ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1))
-      prevFrame = frameIdx
-      return acc
-    }, []).join(' ')
+      for (let i = 0; i < ecgData.length; i++) {
+        const t = timesSec[i]
+        if (t < startSecond || t >= endSecond) continue
 
-    // 2) Grid lines (minor + major)
-    const grid = []
-    const colsSmall = pageW / SMALL_SQ
+        // x relative to startSecond (in px)
+        const x = (t - startSecond) * PX_PER_SEC
+
+        // vertical center of this strip
+        const yCenter = leadIdx * segmentHeight + segmentHeight / 2
+
+        // voltage (in V) → mm → px
+        const voltage = ecgData[i][key]
+        const y = yCenter - (voltage * 1000) * PX_PER_MV
+
+        const cmd = `${firstPoint ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+        d += cmd + ' '
+        firstPoint = false
+      }
+
+      return d.trim()
+    })
+
+    // 2) Generate grid lines (vertical + horizontal)
+    const gridLines = []
+    const colsSmall = adjustedPageW / SMALL_SQ
     const rowsSmall = pageH / SMALL_SQ
+
+    // vertical lines
     for (let i = 0; i <= colsSmall; i++) {
       const x = i * SMALL_SQ
-      const major = i % 5 === 0
-      grid.push(`<line x1="${x}" y1="0" x2="${x}" y2="${pageH}"
-        stroke="${major ? '#bbb' : '#eee'}" stroke-width="${major ? 1 : 0.5}" />`)
+      const isMajor = i % 5 === 0
+      gridLines.push(`
+        <line
+          x1="${x}" y1="0"
+          x2="${x}" y2="${pageH}"
+          stroke="${isMajor ? '#bbb' : '#eee'}"
+          stroke-width="${isMajor ? 1 : 0.5}"
+        />`)
     }
+
+    // horizontal lines
     for (let j = 0; j <= rowsSmall; j++) {
       const y = j * SMALL_SQ
-      const major = j % 5 === 0
-      grid.push(`<line x1="0" y1="${y}" x2="${pageW}" y2="${y}"
-        stroke="${major ? '#bbb' : '#eee'}" stroke-width="${major ? 1 : 0.5}" />`)
+      const isMajor = j % 5 === 0
+      gridLines.push(`
+        <line
+          x1="0" y1="${y}"
+          x2="${adjustedPageW}" y2="${y}"
+          stroke="${isMajor ? '#bbb' : '#eee'}"
+          stroke-width="${isMajor ? 1 : 0.5}"
+        />`)
     }
 
-    // 3) Frame borders inset by half stroke
-    const borders = []
-    for (let c = 0; c <= COLS; c++) {
-      const x = c * FRAME_W - HALF_STROKE
-      borders.push(`<line x1="${x}" y1="0" x2="${x}" y2="${pageH}"
-        stroke="#000" stroke-width="${STROKE}" />`)
-    }
-    for (let r = 0; r <= ROWS; r++) {
-      const y = r * FRAME_H - HALF_STROKE
-      borders.push(`<line x1="0" y1="${y}" x2="${pageW}" y2="${y}"
-        stroke="#000" stroke-width="${STROKE}" />`)
+    // Add vertical thick lines every 5 large boxes
+    const thickVerticalLines = []
+    const colsLarge = adjustedPageW / LARGE_SQ
+    for (let i = 0; i <= colsLarge; i += 5) {
+      const x = i * LARGE_SQ
+      thickVerticalLines.push(`
+        <line
+          x1="${x}" y1="0"
+          x2="${x}" y2="${pageH}"
+          stroke="#000"
+          stroke-width="2"
+        />`)
     }
 
-    // 4) Combine into one SVG
+    // 3) Add labels and paths
+    const labelsAndPaths = leadPaths.map((d, idx) => {
+      const yLabel = idx * segmentHeight + 14  // 14 px down for label
+      const label = leadLabels[idx]
+      return `
+        <text
+          x="4"
+          y="${yLabel.toFixed(1)}"
+          font-size="14"
+          font-family="sans-serif"
+          fill="#000"
+        >${label}</text>
+        <path
+          d="${d}"
+          fill="none"
+          stroke="#000"
+          stroke-width="1.2"
+        />`
+    }).join('\n')
+
     return `
       <div class="page">
         <div class="header">
           Enhanced Filter · Mains Filter: 50 Hz · Scale: 25 mm/s, 10 mm/mV
+          Total Samples: ${totalSamples}
         </div>
-        <svg width="${pageW}" height="${pageH}" xmlns="http://www.w3.org/2000/svg">
-          ${grid.join('\n')}
-          ${borders.join('\n')}
-          <path d="${commands}" fill="none" stroke="#000" stroke-width="1.2"/>
+        <svg
+          width="${adjustedPageW}"
+          height="${pageH}"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          ${gridLines.join('\n')}
+          ${thickVerticalLines.join('\n')}
+          ${labelsAndPaths}
         </svg>
       </div>`
   }).join('\n')
 
-  // 5) Full HTML with A4 portrait layout
+  // Full HTML with A4 portrait layout
   const html = `
     <html>
       <head>
-        <meta name="viewport" content="width=${pageW}, height=${pageH}" />
+        <meta name="viewport" content="width=${adjustedPageW}, height=${pageH}" />
         <style>
           @page { size: A4 portrait; margin: 0 }
-          body { margin:0; padding:0; }
+          body { margin: 0; padding: 0; }
+          .total-samples {
+            font-family: sans-serif;
+            font-size: 12px;
+            text-align: left;
+            padding: 4px 8px;
+            font-weight: bold;
+          }
           .header {
             font-family: sans-serif;
             font-size: 12px;
@@ -119,7 +193,385 @@ export default function ECGReportScreen() {
       </body>
     </html>`
 
-  // 6) Print to PDF & share
+  try {
+    const { uri } = await Print.printToFileAsync({ html })
+    await shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' })
+    return true
+  } catch (err) {
+    console.error('PDF generation error', err)
+    return false
+  }
+}
+
+// Add new standalone function that doesn't require data parameter
+export async function generateStandaloneECGPDF() {
+  const pageW = FRAME_W * COLS
+  const pageH = FRAME_H * ROWS
+
+  // Ensure pageW is a multiple of LARGE_SQ for complete boxes
+  const completeLargeBoxes = Math.ceil(pageW / LARGE_SQ)
+  const adjustedPageW = completeLargeBoxes * LARGE_SQ
+
+  const framesPerPage = COLS * ROWS  // seconds per page
+
+  // number of full‐second frames in data
+  const totalFrames = Math.floor(ecgData[ecgData.length - 1].Time / SAMPLE_RATE) + 1
+  const numPages = Math.ceil(totalFrames / framesPerPage)
+
+  // Total samples from the JSON data
+  const totalSamples = ecgData.length
+
+  // keys and labels for the six leads
+  const leadKeys = [
+    'ECG_Lead1',
+    'ECG_Lead2',
+    'ECG_Lead3',
+    'ECG_aVR',
+    'ECG_aVL',
+    'ECG_aVF'
+  ]
+  const leadLabels = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF']
+
+  // Precompute time in seconds for each sample
+  const timesSec = ecgData.map(pt => pt.Time / SAMPLE_RATE)
+
+  // Build HTML for each page
+  const pagesHtml = Array.from({ length: numPages }).map((_, pageIdx) => {
+    const startSecond = pageIdx * framesPerPage
+    const endSecond = startSecond + framesPerPage
+
+    // Divide page into six equal vertical strips
+    const segmentHeight = pageH / 6
+
+    // 1) Generate one <path> per lead
+    const leadPaths = leadKeys.map((key, leadIdx) => {
+      let d = ''
+      let firstPoint = true
+
+      for (let i = 0; i < ecgData.length; i++) {
+        const t = timesSec[i]
+        if (t < startSecond || t >= endSecond) continue
+
+        // x relative to startSecond (in px)
+        const x = (t - startSecond) * PX_PER_SEC
+
+        // vertical center of this strip
+        const yCenter = leadIdx * segmentHeight + segmentHeight / 2
+
+        // voltage (in V) → mm → px
+        const voltage = ecgData[i][key]
+        const y = yCenter - (voltage * 1000) * PX_PER_MV
+
+        const cmd = `${firstPoint ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+        d += cmd + ' '
+        firstPoint = false
+      }
+
+      return d.trim()
+    })
+
+    // 2) Generate grid lines (vertical + horizontal)
+    const gridLines = []
+    const colsSmall = adjustedPageW / SMALL_SQ
+    const rowsSmall = pageH / SMALL_SQ
+
+    // vertical lines
+    for (let i = 0; i <= colsSmall; i++) {
+      const x = i * SMALL_SQ
+      const isMajor = i % 5 === 0
+      gridLines.push(`
+        <line
+          x1="${x}" y1="0"
+          x2="${x}" y2="${pageH}"
+          stroke="${isMajor ? '#bbb' : '#eee'}"
+          stroke-width="${isMajor ? 1 : 0.5}"
+        />`)
+    }
+
+    // horizontal lines
+    for (let j = 0; j <= rowsSmall; j++) {
+      const y = j * SMALL_SQ
+      const isMajor = j % 5 === 0
+      gridLines.push(`
+        <line
+          x1="0" y1="${y}"
+          x2="${adjustedPageW}" y2="${y}"
+          stroke="${isMajor ? '#bbb' : '#eee'}"
+          stroke-width="${isMajor ? 1 : 0.5}"
+        />`)
+    }
+
+    // Add vertical thick lines every 5 large boxes
+    const thickVerticalLines = []
+    const colsLarge = adjustedPageW / LARGE_SQ
+    for (let i = 0; i <= colsLarge; i += 5) {
+      const x = i * LARGE_SQ
+      thickVerticalLines.push(`
+        <line
+          x1="${x}" y1="0"
+          x2="${x}" y2="${pageH}"
+          stroke="#000"
+          stroke-width="2"
+        />`)
+    }
+
+    // 3) Add labels and paths
+    const labelsAndPaths = leadPaths.map((d, idx) => {
+      const yLabel = idx * segmentHeight + 14  // 14 px down for label
+      const label = leadLabels[idx]
+      return `
+        <text
+          x="4"
+          y="${yLabel.toFixed(1)}"
+          font-size="14"
+          font-family="sans-serif"
+          fill="#000"
+        >${label}</text>
+        <path
+          d="${d}"
+          fill="none"
+          stroke="#000"
+          stroke-width="1.2"
+        />`
+    }).join('\n')
+
+    return `
+      <div class="page">
+        <div class="header">
+          Enhanced Filter · Mains Filter: 50 Hz · Scale: 25 mm/s, 10 mm/mV
+          Total Samples: ${totalSamples}
+        </div>
+        <svg
+          width="${adjustedPageW}"
+          height="${pageH}"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          ${gridLines.join('\n')}
+          ${thickVerticalLines.join('\n')}
+          ${labelsAndPaths}
+        </svg>
+      </div>`
+  }).join('\n')
+
+  // Full HTML with A4 portrait layout
+  const html = `
+    <html>
+      <head>
+        <meta name="viewport" content="width=${adjustedPageW}, height=${pageH}" />
+        <style>
+          @page { size: A4 portrait; margin: 0 }
+          body { margin: 0; padding: 0; }
+          .total-samples {
+            font-family: sans-serif;
+            font-size: 12px;
+            text-align: left;
+            padding: 4px 8px;
+            font-weight: bold;
+          }
+          .header {
+            font-family: sans-serif;
+            font-size: 12px;
+            text-align: right;
+            padding: 8px;
+          }
+          .page { page-break-after: always; }
+        </style>
+      </head>
+      <body>
+        ${pagesHtml}
+      </body>
+    </html>`
+
+  try {
+    const { uri } = await Print.printToFileAsync({ html })
+    await shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' })
+    return true
+  } catch (err) {
+    console.error('PDF generation error', err)
+    return false
+  }
+}
+
+export default function ECGReportScreen() {
+  const { width: screenW } = Dimensions.get('window')
+  const pageW = FRAME_W * COLS
+  const pageH = FRAME_H * ROWS
+
+  // Ensure pageW is a multiple of LARGE_SQ for complete boxes
+  const completeLargeBoxes = Math.ceil(pageW / LARGE_SQ)
+  const adjustedPageW = completeLargeBoxes * LARGE_SQ
+
+  const framesPerPage = COLS * ROWS  // seconds per page
+
+  // number of full‐second frames in data
+  const totalFrames = Math.floor(ecgData[ecgData.length - 1].Time / SAMPLE_RATE) + 1
+  const numPages = Math.ceil(totalFrames / framesPerPage)
+
+  // Total samples from the JSON data
+  const totalSamples = ecgData.length
+
+  // keys and labels for the six leads
+  const leadKeys = [
+    'ECG_Lead1',
+    'ECG_Lead2',
+    'ECG_Lead3',
+    'ECG_aVR',
+    'ECG_aVL',
+    'ECG_aVF'
+  ]
+  const leadLabels = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF']
+
+  // Precompute time in seconds for each sample
+  const timesSec = ecgData.map(pt => pt.Time / SAMPLE_RATE)
+
+  // Build HTML for each page
+  const pagesHtml = Array.from({ length: numPages }).map((_, pageIdx) => {
+    const startSecond = pageIdx * framesPerPage
+    const endSecond = startSecond + framesPerPage
+
+    // Divide page into six equal vertical strips
+    const segmentHeight = pageH / 6
+
+    // 1) Generate one <path> per lead
+    const leadPaths = leadKeys.map((key, leadIdx) => {
+      let d = ''
+      let firstPoint = true
+
+      for (let i = 0; i < ecgData.length; i++) {
+        const t = timesSec[i]
+        if (t < startSecond || t >= endSecond) continue
+
+        // x relative to startSecond (in px)
+        const x = (t - startSecond) * PX_PER_SEC
+
+        // vertical center of this strip
+        const yCenter = leadIdx * segmentHeight + segmentHeight / 2
+
+        // voltage (in V) → mm → px
+        const voltage = ecgData[i][key]
+        const y = yCenter - (voltage * 1000) * PX_PER_MV
+
+        const cmd = `${firstPoint ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+        d += cmd + ' '
+        firstPoint = false
+      }
+
+      return d.trim()
+    })
+
+    // 2) Generate grid lines (vertical + horizontal)
+    const gridLines = []
+    const colsSmall = adjustedPageW / SMALL_SQ
+    const rowsSmall = pageH / SMALL_SQ
+
+    // vertical lines
+    for (let i = 0; i <= colsSmall; i++) {
+      const x = i * SMALL_SQ
+      const isMajor = i % 5 === 0
+      gridLines.push(`
+        <line
+          x1="${x}" y1="0"
+          x2="${x}" y2="${pageH}"
+          stroke="${isMajor ? '#bbb' : '#eee'}"
+          stroke-width="${isMajor ? 1 : 0.5}"
+        />`)
+    }
+
+    // horizontal lines
+    for (let j = 0; j <= rowsSmall; j++) {
+      const y = j * SMALL_SQ
+      const isMajor = j % 5 === 0
+      gridLines.push(`
+        <line
+          x1="0" y1="${y}"
+          x2="${adjustedPageW}" y2="${y}"
+          stroke="${isMajor ? '#bbb' : '#eee'}"
+          stroke-width="${isMajor ? 1 : 0.5}"
+        />`)
+    }
+
+    // Add vertical thick lines every 5 large boxes
+    const thickVerticalLines = []
+    const colsLarge = adjustedPageW / LARGE_SQ
+    for (let i = 0; i <= colsLarge; i += 5) {
+      const x = i * LARGE_SQ
+      thickVerticalLines.push(`
+        <line
+          x1="${x}" y1="0"
+          x2="${x}" y2="${pageH}"
+          stroke="#000"
+          stroke-width="2"
+        />`)
+    }
+
+    // 3) Add labels and paths
+    const labelsAndPaths = leadPaths.map((d, idx) => {
+      const yLabel = idx * segmentHeight + 14  // 14 px down for label
+      const label = leadLabels[idx]
+      return `
+        <text
+          x="4"
+          y="${yLabel.toFixed(1)}"
+          font-size="14"
+          font-family="sans-serif"
+          fill="#000"
+        >${label}</text>
+        <path
+          d="${d}"
+          fill="none"
+          stroke="#000"
+          stroke-width="1.2"
+        />`
+    }).join('\n')
+
+    return `
+      <div class="page">
+        <div class="header">
+          Enhanced Filter · Mains Filter: 50 Hz · Scale: 25 mm/s, 10 mm/mV
+          Total Samples: ${totalSamples}
+        </div>
+        <svg
+          width="${adjustedPageW}"
+          height="${pageH}"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          ${gridLines.join('\n')}
+          ${thickVerticalLines.join('\n')}
+          ${labelsAndPaths}
+        </svg>
+      </div>`
+  }).join('\n')
+
+  // Full HTML with A4 portrait layout
+  const html = `
+    <html>
+      <head>
+        <meta name="viewport" content="width=${adjustedPageW}, height=${pageH}" />
+        <style>
+          @page { size: A4 portrait; margin: 0 }
+          body { margin: 0; padding: 0; }
+          .total-samples {
+            font-family: sans-serif;
+            font-size: 12px;
+            text-align: left;
+            padding: 4px 8px;
+            font-weight: bold;
+          }
+          .header {
+            font-family: sans-serif;
+            font-size: 12px;
+            text-align: right;
+            padding: 8px;
+          }
+          .page { page-break-after: always; }
+        </style>
+      </head>
+      <body>
+        ${pagesHtml}
+      </body>
+    </html>`
+
+  // Print to PDF and share
   const handlePrint = async () => {
     try {
       const { uri } = await Print.printToFileAsync({ html })
@@ -131,14 +583,16 @@ export default function ECGReportScreen() {
 
   return (
     <View style={styles.container}>
-      <Button title="Generate ECG PDF Report" onPress={handlePrint}/>
+      <Button title="GeneratECG PDF" onPress={handlePrint} />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, justifyContent: 'center',
-    padding: 16, backgroundColor: '#fff',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
   },
 })

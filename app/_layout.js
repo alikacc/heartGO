@@ -32,7 +32,7 @@ export default function RootLayout() {
     <UserProvider>
       <BLEProvider>
         <Stack
-          initialRouteName="storage"
+          initialRouteName="home"
           screenOptions={{
             headerShown: false,
           }}

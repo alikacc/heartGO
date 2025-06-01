@@ -439,7 +439,7 @@ export default function HistoryScreen() {
               <View style={historicalStyles.headerContent}>
                 <Text style={historicalStyles.headerText}>Date</Text>
                 <Text style={historicalStyles.headerText}>
-                  {sortField === 'date' && sortDirection === 'asc' ? '↑' : '↓'}
+                  {sortField === 'date' && sortDirection === 'asc' ? '▵' : '▿'}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -451,7 +451,7 @@ export default function HistoryScreen() {
               <View style={historicalStyles.headerContent}>
                 <Text style={historicalStyles.headerText}>HR</Text>
                 <Text style={historicalStyles.headerText}>
-                  {sortField === 'hr' && sortDirection === 'asc' ? '↑' : '↓'}
+                  {sortField === 'hr' && sortDirection === 'asc' ? '▵' : '▿'}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -463,7 +463,7 @@ export default function HistoryScreen() {
               <View style={historicalStyles.headerContent}>
                 <Text style={historicalStyles.headerText}>QRS</Text>
                 <Text style={historicalStyles.headerText}>
-                  {sortField === 'qrs' && sortDirection === 'asc' ? '↑' : '↓'}
+                  {sortField === 'qrs' && sortDirection === 'asc' ? '▵' : '▿'}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -475,14 +475,23 @@ export default function HistoryScreen() {
               <View style={historicalStyles.headerContent}>
                 <Text style={historicalStyles.headerText}>QTC</Text>
                 <Text style={historicalStyles.headerText}>
-                  {sortField === 'qtc' && sortDirection === 'asc' ? '↑' : '↓'}
+                  {sortField === 'qtc' && sortDirection === 'asc' ? '▵' : '▿'}
                 </Text>
               </View>
             </TouchableOpacity>
 
-            <View style={[historicalStyles.cell, historicalStyles.colSmall]}>
-              <Text style={historicalStyles.headerText}>HRV</Text>
-            </View>
+            <TouchableOpacity
+              style={[historicalStyles.cell, historicalStyles.colSmall]}
+              onPress={() => handleSort('heartvariance')}
+            >
+              <View style={historicalStyles.headerContent}>
+                <Text style={historicalStyles.headerText}>HRV</Text>
+                <Text style={historicalStyles.headerText}>
+                  {sortField === 'heartvariance' && sortDirection === 'asc' ? '▵' : '▿'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
             <View style={[historicalStyles.cell, historicalStyles.colPlot]}>
               <Text style={historicalStyles.headerText}>Plot</Text>
             </View>
