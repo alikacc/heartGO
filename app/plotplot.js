@@ -82,30 +82,28 @@ export default function ECGWithGrid() {
   const [showPlotModal, setShowPlotModal] = useState(false);
 
   useEffect(() => {
-    // Record the start time
     startTimeRef.current = Date.now();
 
-    // Clear any existing interval
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
 
-    // Set up interval that updates every 100ms for smoother countdown
     intervalRef.current = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
       const remaining = Math.max(0, DURATION_SEC - elapsed);
 
       setTimer(remaining);
 
-      // When timer reaches 0, stop BLE and mark measurement complete
       if (remaining === 0) {
         clearInterval(intervalRef.current);
-        setShouldStopBLE(true);
-        setMeasurementComplete(true);
-      }
-    }, 100); // Update every 100ms for smooth countdown
 
-    // Cleanup interval on unmount
+        setTimeout(() => {
+          setShouldStopBLE(true);
+          setMeasurementComplete(true);
+        }, 100);
+      }
+    }, 100);
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -395,9 +393,51 @@ export default function ECGWithGrid() {
   };
 
   // Modify the handleDownloadPlot function to directly generate PDF
+  // Modify the handleDownloadPlot function in your first file
   const handleDownloadPlot = async () => {
+    if (!isProcessed) {
+      Alert.alert('Not Processed', 'Data has not been processed yet. Please process the data first.');
+      return;
+    }
+
+    if (filteredLead1.length === 0) {
+      Alert.alert('No Data', 'No filtered data available to plot');
+      return;
+    }
+
     try {
-      await generateStandaloneECGPDF();
+      // Prepare the real ECG data in the format expected by the plot function
+      const realEcgData = {
+        filteredLead1,
+        filteredLead2,
+        filteredLead3,
+        filteredAVR,
+        filteredAVL,
+        filteredAVF,
+        length: Math.max(
+          filteredLead1.length,
+          filteredLead2.length,
+          filteredLead3.length,
+          filteredAVR.length,
+          filteredAVL.length,
+          filteredAVF.length
+        )
+      };
+
+      console.log('📊 Generating PDF with real ECG data:', {
+        samples: realEcgData.length,
+        leads: {
+          Lead1: filteredLead1.length,
+          Lead2: filteredLead2.length,
+          Lead3: filteredLead3.length,
+          aVR: filteredAVR.length,
+          aVL: filteredAVL.length,
+          aVF: filteredAVF.length
+        }
+      });
+
+      // Pass the real data to the plot function
+      await generateStandaloneECGPDF(realEcgData);
     } catch (err) {
       console.error('PDF generation error', err);
       Alert.alert('Error', 'Failed to generate PDF');
@@ -418,6 +458,47 @@ export default function ECGWithGrid() {
               </Text>
             </View>
             <Text style={styles.bigTimerLabel}>{getStatusText()}</Text>
+          </View>
+
+          {/* Real-time Data Display */}
+          <View style={styles.dataDisplayContainer}>
+            <Text style={styles.dataDisplayTitle}>Real-time Data</Text>
+
+            <View style={styles.dataRow}>
+              <Text style={styles.dataLabel}>Raw Data:</Text>
+              <Text style={styles.dataValue}>
+                Lead1: {rawLead1.length} | Lead2: {rawLead2.length}
+              </Text>
+            </View>
+
+            {isProcessed && (
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Filtered Data:</Text>
+                <Text style={styles.dataValue}>
+                  I: {filteredLead1.length} | II: {filteredLead2.length} | III: {filteredLead3.length}
+                </Text>
+              </View>
+            )}
+
+            {isProcessed && (
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Augmented:</Text>
+                <Text style={styles.dataValue}>
+                  aVR: {filteredAVR.length} | aVL: {filteredAVL.length} | aVF: {filteredAVF.length}
+                </Text>
+              </View>
+            )}
+
+            {/* Show latest values if available */}
+            {rawLead1.length > 0 && (
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Latest Raw:</Text>
+                <Text style={styles.dataValue}>
+                  L1: {rawLead1[rawLead1.length - 1]?.toFixed(2) || 'N/A'} |
+                  L2: {rawLead2[rawLead2.length - 1]?.toFixed(2) || 'N/A'}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </SafeAreaView>
@@ -548,17 +629,17 @@ export default function ECGWithGrid() {
                 <Ionicons name="document-outline" size={20} color={theme.colors.primary} />
                 <Text style={styles.secondaryButtonText}>Download ECG Plot (PDF)</Text>
               </TouchableOpacity>
-            {/* Save Button */}
-                          <TouchableOpacity
-              style={[styles.primaryButton, !isProcessed && styles.disabledButton]}
-              onPress={saveToDatabase}
-              activeOpacity={isProcessed ? 0.8 : 1}
-              disabled={!isProcessed}
-            >
-              <Text style={[styles.primaryButtonText, !isProcessed && styles.disabledButtonText]}>
-                SAVE TO PROFILE
-              </Text>
-            </TouchableOpacity>
+              {/* Save Button */}
+              <TouchableOpacity
+                style={[styles.primaryButton, !isProcessed && styles.disabledButton]}
+                onPress={saveToDatabase}
+                activeOpacity={isProcessed ? 0.8 : 1}
+                disabled={!isProcessed}
+              >
+                <Text style={[styles.primaryButtonText, !isProcessed && styles.disabledButtonText]}>
+                  SAVE TO PROFILE
+                </Text>
+              </TouchableOpacity>
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -886,5 +967,39 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.bold,
     fontWeight: theme.fonts.weights.bold,
     color: theme.colors.surface,
+  },
+  dataDisplayContainer: {
+    marginTop: theme.spacing.xl,
+    padding: theme.spacing.base,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.base,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    minWidth: 300,
+  },
+  dataDisplayTitle: {
+    fontSize: theme.fontSizes.base,
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  dataRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.xs,
+  },
+  dataLabel: {
+    fontSize: theme.fontSizes.sm,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.textSecondary,
+    flex: 1,
+  },
+  dataValue: {
+    fontSize: theme.fontSizes.sm,
+    fontFamily: theme.fonts.mono || theme.fonts.regular,
+    color: theme.colors.primary,
+    flex: 2,
+    textAlign: 'right',
   },
 });
