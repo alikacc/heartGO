@@ -1,7 +1,8 @@
 import React from 'react'
-import { View, Button, Dimensions, StyleSheet } from 'react-native'
+import { View, Button, Dimensions, StyleSheet, Alert } from 'react-native'
 import * as Print from 'expo-print'
 import { shareAsync } from 'expo-sharing'
+import * as FileSystem from 'expo-file-system'
 // Remove the dummy data import
 // import ecgData from './coco.json'  // REMOVED - we'll use real data now
 
@@ -16,8 +17,119 @@ const PX_PER_SEC = 25 * SMALL_SQ  // 25 mm/s → px/s
 const PX_PER_MV = 10 * SMALL_SQ   // 10 mm/mV → px/mV
 const SAMPLE_RATE = 320  // Hz
 
+// Function to generate the cover page HTML
+const generateCoverPage = (userData, measurementData) => {
+  const {
+    name = 'Unknown',
+    birthday = 'Unknown',
+    gender = 'Unknown'
+  } = userData || {};
+
+  const {
+    heartRate = 0,
+    recordingDate = new Date().toLocaleString(),
+    duration = '30s',
+    tags = [],
+    notes = '',
+    qtInterval = 0,
+    qrsDuration = 0,
+    heartVariance = 0
+  } = measurementData || {};
+
+  // Determine heart rate classification
+  let determination = 'Normal';
+  if (heartRate > 100) {
+    determination = 'Tachycardia';
+  } else if (heartRate < 60) {
+    determination = 'Bradycardia';
+  }
+
+  // Format additional information
+  let additionalInfo = 'No additional information to display';
+  if (tags.length > 0 || notes.trim()) {
+    const tagText = tags.length > 0 ? `Tags: ${tags.join(', ')}` : '';
+    const noteText = notes.trim() ? `Notes: ${notes}` : '';
+    additionalInfo = [tagText, noteText].filter(Boolean).join('\n');
+  }
+
+  return `
+    <div class="cover-page">
+      <div class="header-section">
+        <div class="logo-section">
+          <img src="file:///android_asset/hand.jpg" alt="HeartGo Logo" class="logo-image" />
+        </div>
+        <div class="title-section">
+          <h1>EKG Recording</h1>
+        </div>
+      </div>
+
+      <div class="patient-section">
+        <h2 class="patient-name">${name}</h2>
+        <div class="patient-details">
+          <p><strong>DOB:</strong> ${birthday}</p>
+          <p><strong>Sex:</strong> ${gender}</p>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="recording-overview">
+        <h3>EKG Recording Overview</h3>
+        
+        <div class="determination-section">
+          <h4>HeartGo Determination</h4>
+          <p class="determination">${determination}</p>
+        </div>
+
+        <div class="recording-details">
+          <div class="detail-row">
+            <span class="detail-label">Recorded:</span>
+            <span class="detail-value">${recordingDate}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Heart Rate:</span>
+            <span class="detail-value">${heartRate} BPM</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Duration:</span>
+            <span class="detail-value">${duration}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">QT Interval:</span>
+            <span class="detail-value">${qtInterval} ms</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">QRS Duration:</span>
+            <span class="detail-value">${qrsDuration} ms</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Heart Variance:</span>
+            <span class="detail-value">${heartVariance} ms</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="additional-info">
+        <h3>Additional Information</h3>
+        <p class="info-content">${additionalInfo}</p>
+      </div>
+
+      <div class="footer-section">
+        <div class="disclaimer">
+          <p>HeartGo does not check for heart attack. If you believe you are having a medical emergency, call emergency services. HeartGo does not provide medical advice or services, and any information from HeartGo is provided to assist you and your doctor with your medical care and not as a replacement for consulting with your doctor.</p>
+        </div>
+        <div class="logo-bottom">
+          <div class="company-logo">HeartGo</div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
 // Modified function to accept real ECG data as parameter
-export async function generateECGPDF(realEcgData) {
+export async function generateECGPDF(realEcgData, userData = null, measurementData = null) {
   const pageW = FRAME_W * COLS
   const pageH = FRAME_H * ROWS
 
@@ -46,8 +158,8 @@ export async function generateECGPDF(realEcgData) {
   ]
   const leadLabels = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF']
 
-  // Build HTML for each page
-  const pagesHtml = Array.from({ length: numPages }).map((_, pageIdx) => {
+  // Build HTML for each ECG page
+  const ecgPagesHtml = Array.from({ length: numPages }).map((_, pageIdx) => {
     const startSecond = pageIdx * framesPerPage
     const endSecond = startSecond + framesPerPage
 
@@ -167,6 +279,11 @@ export async function generateECGPDF(realEcgData) {
       </div>`
   }).join('\n')
 
+  // Generate cover page with user and measurement data
+  const coverPageHtml = generateCoverPage(userData, {
+    ...measurementData
+  });
+
   // Full HTML with A4 portrait layout
   const html = `
     <html>
@@ -174,14 +291,147 @@ export async function generateECGPDF(realEcgData) {
         <meta name="viewport" content="width=${adjustedPageW}, height=${pageH}" />
         <style>
           @page { size: A4 portrait; margin: 0 }
-          body { margin: 0; padding: 0; }
-          .total-samples {
-            font-family: sans-serif;
-            font-size: 12px;
-            text-align: left;
-            padding: 4px 8px;
-            font-weight: bold;
+          body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+          
+          /* Cover page styles */
+          .cover-page {
+            page-break-after: always;
+            padding: 40px;
+            height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
           }
+          
+          .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+          }
+          
+          .logo-image {
+            max-width: 120px;
+            max-height: 80px;
+            object-fit: contain;
+          }
+          
+          .title-section h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: normal;
+            color: #2c3e50;
+          }
+          
+          .patient-section {
+            margin-bottom: 30px;
+          }
+          
+          .patient-name {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+          }
+          
+          .patient-details p {
+            margin: 5px 0;
+            font-size: 16px;
+            color: #2c3e50;
+          }
+          
+          .divider {
+            height: 3px;
+            background: linear-gradient(to right, #2EB5FA,rgb(46, 121, 250));
+            margin: 30px 0;
+          }
+          
+          .recording-overview h3 {
+            font-size: 22px;
+            margin: 0 0 20px 0;
+            color: #2c3e50;
+          }
+          
+          .determination-section h4 {
+            font-size: 18px;
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+          }
+          
+          .determination {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 0 0 25px 0;
+            color: #2c3e50;
+          }
+          
+          .recording-details {
+            margin-bottom: 30px;
+          }
+          
+          .detail-row {
+            display: flex;
+            margin-bottom: 8px;
+          }
+          
+          .detail-label {
+            font-weight: bold;
+            min-width: 150px;
+            color: #2c3e50;
+          }
+          
+          .detail-value {
+            color: #2c3e50;
+          }
+          
+          .additional-info {
+            flex-grow: 1;
+          }
+          
+          .additional-info h3 {
+            font-size: 22px;
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+          }
+          
+          .info-content {
+            font-size: 14px;
+            color: #2c3e50;
+            white-space: pre-line;
+          }
+          
+          .footer-section {
+            margin-top: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            font-size: 10px;
+            color: #666;
+          }
+          
+          .disclaimer {
+            flex: 1;
+            max-width: 400px;
+            margin-right: 20px;
+          }
+          
+          .company-info {
+            text-align: center;
+          }
+          
+          .company-logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #16a085;
+          }
+          
+          .page-number {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #999;
+          }
+          
+          /* ECG page styles */
           .header {
             font-family: sans-serif;
             font-size: 12px;
@@ -192,32 +442,55 @@ export async function generateECGPDF(realEcgData) {
         </style>
       </head>
       <body>
-        ${pagesHtml}
+        ${coverPageHtml}
+        ${ecgPagesHtml}
       </body>
     </html>`
 
   try {
     const { uri } = await Print.printToFileAsync({ html })
-    await shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' })
-    return true
+    return uri
   } catch (err) {
     console.error('PDF generation error', err)
-    return false
+    return null
   }
 }
 
 // Modified standalone function - now requires data to be passed in
-export async function generateStandaloneECGPDF(realEcgData) {
-  if (!realEcgData) {
+export const generateStandaloneECGPDF = async (ecgData, filePath = null, userData = null, measurementData = null) => {
+  if (!ecgData) {
     console.error('No ECG data provided to generateStandaloneECGPDF')
     return false
   }
 
-  return await generateECGPDF(realEcgData)
+  try {
+    const uri = await generateECGPDF(ecgData, userData, measurementData)
+
+    if (filePath) {
+      // Save to specific path instead of sharing
+      await FileSystem.moveAsync({
+        from: uri,
+        to: filePath
+      });
+      console.log('✅ PDF saved to:', filePath);
+      return true;
+    } else {
+      // Use your existing sharing behavior
+      if (await shareAsync.isAvailableAsync()) {
+        await shareAsync.shareAsync(uri);
+      } else {
+        Alert.alert('Success', `File saved to ${uri}`);
+      }
+      return true;
+    }
+  } catch (error) {
+    console.error('PDF generation error:', error);
+    throw error;
+  }
 }
 
 // Keep the React component for backwards compatibility, but it won't work without data
-export default function ECGReportScreen({ ecgData }) {
+export default function ECGReportScreen({ ecgData, userData, measurementData }) {
   const handlePrint = async () => {
     if (!ecgData) {
       console.error('No ECG data provided to ECGReportScreen')
@@ -225,7 +498,7 @@ export default function ECGReportScreen({ ecgData }) {
     }
 
     try {
-      await generateECGPDF(ecgData)
+      await generateECGPDF(ecgData, userData, measurementData)
     } catch (err) {
       console.error('PDF generation error', err)
     }

@@ -58,61 +58,46 @@ export default function OnboardingScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#E3F2FD', '#BBDEFB', '#90CAF9']}
+        colors={['#FFFFFF', '#E3F2FD', '#90CAF9']}
         style={styles.gradient}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0, y: 1 }}
       >
         <View style={styles.content}>
-          {/* Logo Container */}
-          <Animated.View
-            style={[
-              styles.logoContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }],
-              },
-            ]}
-          >
-            {/* Replace this Image source with your actual logo path */}
-            <Image
-              source={require('./assets/heart-logo.png')} // MODIFY THIS PATH WITH YOUR LOGO
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </Animated.View>
+          <View style={styles.centerContainer}>
+            {/* Logo Container */}
+            <Animated.View
+              style={[
+                styles.logoContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ scale: scaleAnim }],
+                },
+              ]}
+            >
+              <Image
+                source={require('./assets/heart-logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </Animated.View>
 
-          {/* Text Container */}
-          <Animated.View
-            style={[
-              styles.textContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <Text style={styles.appName}>heartGO</Text>
-            <Text style={styles.tagline}>your heart buddy on</Text>
-            <Text style={styles.tagline}>the go</Text>
-          </Animated.View>
-        </View>
-
-        {/* Loading indicator */}
-        <Animated.View
-          style={[
-            styles.loadingContainer,
-            {
-              opacity: fadeAnim,
-            },
-          ]}
-        >
-          <View style={styles.loadingDots}>
-            <Animated.View style={[styles.dot, styles.dot1]} />
-            <Animated.View style={[styles.dot, styles.dot2]} />
-            <Animated.View style={[styles.dot, styles.dot3]} />
+            {/* Text Container */}
+            <Animated.View
+              style={[
+                styles.textContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }],
+                },
+              ]}
+            >
+              <Text style={styles.appName}>heartGO</Text>
+              <Text style={styles.tagline}>your heart buddy on</Text>
+              <Text style={styles.tagline}>the go</Text>
+            </Animated.View>
           </View>
-        </Animated.View>
+        </View>
       </LinearGradient>
     </View>
   );
@@ -129,14 +114,18 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+  },
+  centerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoContainer: {
-    marginBottom: 60,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 20,
   },
   logo: {
     width: 360,
@@ -144,45 +133,21 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
   },
   appName: {
     fontSize: 48,
-    fontWeight: 'bold',
-    color: '#00BCD4',
-    marginBottom: 10,
+    fontFamily: 'Poppins-Bold',
+    color: '#2EB5FA',
+    marginBottom: 4,
     textAlign: 'center',
     letterSpacing: -1,
   },
   tagline: {
     fontSize: 18,
+    fontFamily: 'Poppins-Italic',
     color: '#666',
     textAlign: 'center',
-    fontStyle: 'italic',
     lineHeight: 24,
-  },
-  loadingContainer: {
-    position: 'absolute',
-    bottom: 80,
-    alignItems: 'center',
-  },
-  loadingDots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#00BCD4',
-    marginHorizontal: 4,
-  },
-  dot1: {
-    opacity: 0.4,
-  },
-  dot2: {
-    opacity: 0.7,
-  },
-  dot3: {
-    opacity: 1,
-  },
+  }
 });

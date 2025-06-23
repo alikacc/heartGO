@@ -345,6 +345,15 @@ export default function ECGWithGrid() {
     }
 
     try {
+      // First generate and save the PDF
+      console.log('🔄 Generating PDF for database save...');
+      const pdfFilename = await handleDownloadPlot();
+
+      if (!pdfFilename) {
+        Alert.alert('Error', 'Failed to generate PDF file. Saving data without PDF.');
+        // Continue saving without PDF filename
+      }
+
       const tableName = getCurrentUserTable();
 
       // Create timestamp in the format expected by your database
@@ -360,11 +369,12 @@ export default function ECGWithGrid() {
 
       console.log(`💾 Saving ECG data to ${tableName} for user: ${currentUser.name}`);
       console.log(`📊 Data: HR=${heartbeatDuration}, QT=${qtcDuration}, QRS=${qrsDuration}, HRV=${heartvarianceDuration}`);
+      console.log(`📄 PDF Filename: ${pdfFilename || 'None'}`);
 
-      // Insert the ECG analysis results with tags and notes
+      // Insert the ECG analysis results with tags, notes, and filename
       await db.runAsync(`
-        INSERT INTO ${tableName} (heartbeat, qt, qrs, heartvariance, timestamp, metadata)
-        VALUES (?, ?, ?, ?, ?, ?);
+        INSERT INTO ${tableName} (heartbeat, qt, qrs, heartvariance, timestamp, metadata, filename)
+        VALUES (?, ?, ?, ?, ?, ?, ?);
       `,
         Math.round(heartbeatDuration),           // heartbeat
         Math.round(qtcDuration * 10) / 10,      // qt (rounded to 1 decimal)
@@ -376,13 +386,35 @@ export default function ECGWithGrid() {
           measurementId: id,
           tags: selectedTags,
           notes: notes.trim()
-        })
+        }),
+        pdfFilename || null                      // filename (null if PDF generation failed)
       );
 
-      console.log('✅ ECG data saved successfully to database');
-      Alert.alert('Success', 'ECG measurement saved to your profile!', [
-        { text: 'OK', onPress: () => router.push('/home') }
-      ]);
+      console.log('✅ ECG data and PDF filename saved successfully to database');
+
+      if (pdfFilename) {
+        Alert.alert('Success', 'ECG measurement and plot saved to your profile!', [
+          {
+            text: 'OK', onPress: () => {
+              // Reset states after successful save
+              setMeasurementComplete(false);
+              setShowResultsModal(false);
+              router.push('/home');
+            }
+          }
+        ]);
+      } else {
+        Alert.alert('Partial Success', 'ECG measurement saved, but PDF generation failed.', [
+          {
+            text: 'OK', onPress: () => {
+              // Reset states after successful save
+              setMeasurementComplete(false);
+              setShowResultsModal(false);
+              router.push('/home');
+            }
+          }
+        ]);
+      }
       return true;
 
     } catch (error) {
@@ -392,21 +424,38 @@ export default function ECGWithGrid() {
     }
   };
 
-  // Modify the handleDownloadPlot function to directly generate PDF
-  // Modify the handleDownloadPlot function in your first file
+  // Rewrite handleDownloadPlot to use your original plotting with user data
   const handleDownloadPlot = async () => {
     if (!isProcessed) {
       Alert.alert('Not Processed', 'Data has not been processed yet. Please process the data first.');
-      return;
+      return null;
     }
 
     if (filteredLead1.length === 0) {
       Alert.alert('No Data', 'No filtered data available to plot');
-      return;
+      return null;
     }
 
     try {
-      // Prepare the real ECG data in the format expected by the plot function
+      // Create filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `ecg_plot_${currentUser?.name?.replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp}.pdf`;
+
+      // Get database directory (same as where SQLite database is stored)
+      const databaseDir = FileSystem.documentDirectory + 'SQLite/';
+
+      // Ensure directory exists
+      const dirInfo = await FileSystem.getInfoAsync(databaseDir);
+      if (!dirInfo.exists) {
+        await FileSystem.makeDirectoryAsync(databaseDir, { intermediates: true });
+      }
+
+      const filePath = databaseDir + filename;
+
+      console.log('📊 Generating ECG PDF with your original plotting...');
+      console.log('📁 Target file path:', filePath);
+
+      // Prepare the real ECG data
       const realEcgData = {
         filteredLead1,
         filteredLead2,
@@ -424,23 +473,53 @@ export default function ECGWithGrid() {
         )
       };
 
-      console.log('📊 Generating PDF with real ECG data:', {
-        samples: realEcgData.length,
-        leads: {
-          Lead1: filteredLead1.length,
-          Lead2: filteredLead2.length,
-          Lead3: filteredLead3.length,
-          aVR: filteredAVR.length,
-          aVL: filteredAVL.length,
-          aVF: filteredAVF.length
-        }
-      });
+      // Prepare user data
+      const userData = {
+        name: currentUser?.name || 'Unknown',
+        birthday: currentUser?.birthday || 'Unknown',
+        gender: currentUser?.gender || 'Unknown'
+      };
 
-      // Pass the real data to the plot function
-      await generateStandaloneECGPDF(realEcgData);
+      // Prepare measurement data
+      const measurementData = {
+        heartRate: Math.round(heartbeatDuration),
+        qtInterval: Math.round(qtcDuration * 10) / 10,
+        qrsDuration: Math.round(qrsDuration * 10) / 10,
+        heartVariance: Math.round(heartvarianceDuration),
+        recordingDate: new Date().toLocaleString('en-GB', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        }),
+        duration: `${DURATION_SEC}s`,
+        tags: selectedTags,
+        notes: notes
+      };
+
+      // Use YOUR original plotting function with the file path and additional data
+      await generateStandaloneECGPDF(realEcgData, filePath, userData, measurementData);
+
+      console.log('✅ PDF generated and saved to database directory:', filePath);
+
+      // Verify the file was saved correctly
+      const fileInfo = await FileSystem.getInfoAsync(filePath);
+      if (fileInfo.exists && fileInfo.size > 0) {
+        console.log(`✅ PDF file verified: ${fileInfo.size} bytes`);
+        return filename;
+      } else {
+        console.error('❌ PDF file verification failed');
+        return null;
+      }
+
     } catch (err) {
-      console.error('PDF generation error', err);
-      Alert.alert('Error', 'Failed to generate PDF');
+      console.error('❌ PDF generation error:', err);
+      Alert.alert('Error', 'Failed to generate PDF: ' + err.message);
+      return null;
     }
   };
 
@@ -511,7 +590,7 @@ export default function ECGWithGrid() {
         onRequestClose={() => { }}
       >
         <SafeAreaView style={styles.modalContainer}>
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Measurement Complete</Text>
 
             {/* Measurement Results */}
@@ -579,8 +658,10 @@ export default function ECGWithGrid() {
 
             {/* Notes Section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Notes <Text style={styles.optional}>(optional)</Text></Text>
-              <Text style={styles.characterCount}>{notes.length}/200</Text>
+              <View style={styles.sectionTitleContainer}>
+                <Text style={styles.sectionTitle}>Notes <Text style={styles.optional}>(optional)</Text></Text>
+                <Text style={styles.characterCount}>{notes.length}/200</Text>
+              </View>
 
               <TextInput
                 style={styles.notesInput}
@@ -622,13 +703,13 @@ export default function ECGWithGrid() {
               </TouchableOpacity> */}
 
               {/* Modified Download Plot Button */}
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={styles.secondaryButton}
                 onPress={handleDownloadPlot}
               >
                 <Ionicons name="document-outline" size={20} color={theme.colors.primary} />
                 <Text style={styles.secondaryButtonText}>Download ECG Plot (PDF)</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
               {/* Save Button */}
               <TouchableOpacity
                 style={[styles.primaryButton, !isProcessed && styles.disabledButton]}
@@ -641,7 +722,7 @@ export default function ECGWithGrid() {
                 </Text>
               </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </SafeAreaView>
       </Modal>
 
@@ -707,23 +788,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bigTimerCircle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     borderWidth: 4,
     borderColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.base,
   },
   timerUrgent: {
     borderColor: theme.colors.error,
     backgroundColor: '#ffeeee',
   },
   bigTimerText: {
-    fontSize: 48,
-    fontFamily: theme.fonts.bold,
-    fontWeight: theme.fonts.weights.bold,
+    fontSize: theme.fontSizes['6xl'],
     color: theme.colors.primary,
   },
   timerTextUrgent: {
@@ -731,7 +810,6 @@ const styles = StyleSheet.create({
   },
   bigTimerLabel: {
     fontSize: theme.fontSizes.xl,
-    fontFamily: theme.fonts.medium,
     color: theme.colors.textSecondary,
   },
   modalContainer: {
@@ -744,15 +822,13 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.lg,
   },
   modalTitle: {
-    fontSize: theme.fontSizes.xxl,
-    fontFamily: theme.fonts.bold,
-    fontWeight: theme.fonts.weights.bold,
+    fontSize: theme.fontSizes['3xl'],
     color: theme.colors.text,
     textAlign: 'center',
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
   },
   resultsSection: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
   },
   resultItem: {
     flexDirection: 'row',
@@ -761,42 +837,37 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.lg,
     paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.base + 2,
-    marginBottom: theme.spacing.sm,
+    paddingVertical: theme.spacing.base,
+    marginBottom: theme.spacing.xs,
   },
   resultLabel: {
     fontSize: theme.fontSizes.lg,
-    fontFamily: theme.fonts.medium,
     color: theme.colors.text,
   },
   resultValue: {
     fontSize: theme.fontSizes.lg,
-    fontFamily: theme.fonts.semiBold,
-    fontWeight: theme.fonts.weights.semiBold,
     color: theme.colors.primary,
   },
   section: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.base,
   },
   sectionTitle: {
     fontSize: theme.fontSizes.lg,
-    fontFamily: theme.fonts.semiBold,
-    fontWeight: theme.fonts.weights.semiBold,
     color: theme.colors.text,
-    marginBottom: theme.spacing.base,
   },
   optional: {
     fontSize: theme.fontSizes.base,
-    fontFamily: theme.fonts.regular,
     color: theme.colors.textSecondary,
-    fontWeight: 'normal',
   },
   characterCount: {
     fontSize: theme.fontSizes.sm,
-    fontFamily: theme.fonts.regular,
     color: theme.colors.textSecondary,
-    textAlign: 'right',
-    marginBottom: theme.spacing.xs,
   },
   selectedTagsContainer: {
     flexDirection: 'row',
@@ -809,15 +880,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.lightBlue,
     borderRadius: theme.borderRadius.lg,
     paddingHorizontal: theme.spacing.base,
-    paddingVertical: theme.spacing.xs + 2,
+    paddingVertical: theme.spacing.xs,
     marginRight: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
   },
   selectedTagText: {
     fontSize: theme.fontSizes.base,
-    fontFamily: theme.fonts.medium,
     color: theme.colors.primary,
-    marginRight: theme.spacing.xs + 2,
+    marginRight: theme.spacing.xs,
   },
   button: {
     flexDirection: 'row',
@@ -832,7 +902,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: theme.fontSizes.lg,
-    fontFamily: theme.fonts.medium,
     color: theme.colors.textSecondary,
     marginLeft: theme.spacing.sm,
   },
@@ -843,12 +912,11 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.base,
     padding: theme.spacing.base,
     fontSize: theme.fontSizes.lg,
-    fontFamily: theme.fonts.regular,
     color: theme.colors.text,
-    minHeight: 80,
+    minHeight: 60,
   },
   exportSection: {
-    marginVertical: 5,
+    marginVertical: theme.spacing.xs,
   },
   secondaryButton: {
     flexDirection: 'row',
@@ -864,7 +932,6 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: theme.fontSizes.lg,
-    fontFamily: theme.fonts.medium,
     color: theme.colors.primary,
     marginLeft: theme.spacing.sm,
   },
@@ -873,7 +940,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.full,
     paddingVertical: theme.spacing.lg,
     alignItems: 'center',
-    marginVertical: theme.spacing.xl,
+    marginVertical: theme.spacing.lg,
     shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -882,8 +949,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     fontSize: theme.fontSizes.xl,
-    fontFamily: theme.fonts.bold,
-    fontWeight: theme.fonts.weights.bold,
     color: theme.colors.surface,
   },
   disabledButton: {
@@ -897,15 +962,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.xl,
-    paddingVertical: 15,
+    paddingVertical: theme.spacing.base,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
-  },
-  modalTitle: {
-    fontSize: theme.fontSizes.xl,
-    fontFamily: theme.fonts.semiBold,
-    fontWeight: theme.fonts.weights.semiBold,
-    color: theme.colors.text,
   },
   customTagInput: {
     backgroundColor: theme.colors.surface,
@@ -913,14 +972,13 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.base,
     padding: theme.spacing.base,
-    margin: theme.spacing.xl,
+    margin: theme.spacing.lg,
     fontSize: theme.fontSizes.lg,
-    fontFamily: theme.fonts.regular,
     color: theme.colors.text,
   },
   tagsList: {
     flex: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: theme.spacing.xs,
   },
   tagOption: {
     flexDirection: 'row',
@@ -946,7 +1004,6 @@ const styles = StyleSheet.create({
   },
   tagOptionText: {
     fontSize: theme.fontSizes.lg,
-    fontFamily: theme.fonts.regular,
     color: theme.colors.text,
   },
   applyButton: {
@@ -955,7 +1012,7 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.lg,
     alignItems: 'center',
     marginHorizontal: theme.spacing.xl,
-    marginTop: theme.spacing.xl,
+    marginTop: theme.spacing.lg,
     shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -964,12 +1021,10 @@ const styles = StyleSheet.create({
   },
   applyButtonText: {
     fontSize: theme.fontSizes.xl,
-    fontFamily: theme.fonts.bold,
-    fontWeight: theme.fonts.weights.bold,
     color: theme.colors.surface,
   },
   dataDisplayContainer: {
-    marginTop: theme.spacing.xl,
+    marginTop: theme.spacing.lg,
     padding: theme.spacing.base,
     backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.base,
@@ -979,7 +1034,6 @@ const styles = StyleSheet.create({
   },
   dataDisplayTitle: {
     fontSize: theme.fontSizes.base,
-    fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
     textAlign: 'center',
     marginBottom: theme.spacing.sm,
@@ -991,13 +1045,11 @@ const styles = StyleSheet.create({
   },
   dataLabel: {
     fontSize: theme.fontSizes.sm,
-    fontFamily: theme.fonts.medium,
     color: theme.colors.textSecondary,
     flex: 1,
   },
   dataValue: {
     fontSize: theme.fontSizes.sm,
-    fontFamily: theme.fonts.mono || theme.fonts.regular,
     color: theme.colors.primary,
     flex: 2,
     textAlign: 'right',

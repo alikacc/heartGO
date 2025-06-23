@@ -212,11 +212,37 @@ export const homeStyles = StyleSheet.create({
     historyContainer: {
         marginBottom: 8
     },
+    historyTitle: {
+        fontSize: 12,
+        fontFamily: theme.fonts.semiBold,
+        fontWeight: theme.fonts.weights.semiBold,
+        color: '#666',
+        marginBottom: 4,
+        marginTop: 4
+    },
+    historyItemContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 2
+    },
     historyItem: {
         fontSize: 12,
         fontFamily: theme.fonts.regular,
         color: '#666',
-        marginBottom: 2
+        flex: 1
+    },
+    statusCircle: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginLeft: 8
+    },
+    normalCircle: {
+        backgroundColor: '#00CC00'
+    },
+    abnormalCircle: {
+        backgroundColor: '#FF0000'
     },
 
     infoBox: {
@@ -247,5 +273,32 @@ export const homeStyles = StyleSheet.create({
         fontFamily: theme.fonts.regular,
         color: '#666',
         textAlign: 'center',
+    },
+
+    warningsContainer: {
+        padding: 16,
+        paddingBottom: 8,
+        backgroundColor: '#F8F9FA',
+        width: '100%'
+    },
+    warningBox: {
+        backgroundColor: '#FFF0F0',
+        borderRadius: 8,
+        padding: 16,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: '#FFD0D0'
+    },
+    warningText: {
+        fontSize: 14,
+        fontFamily: theme.fonts.regular,
+        color: '#FF0000',
+        textAlign: 'center',
+        lineHeight: 20
+    },
+    warningBoldText: {
+        fontFamily: theme.fonts.bold,
+        fontWeight: theme.fonts.weights.bold,
+        color: '#FF0000'
     },
 });

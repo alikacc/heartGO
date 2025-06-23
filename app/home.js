@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { format, parse, isValid } from 'date-fns';
 import { Calendar } from 'react-native-calendars';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import Header from './component/header';
 import NavigationBar from './component/navbar';
 import * as SQLite from 'expo-sqlite';
@@ -127,10 +127,11 @@ const getLatestRecords = (data, dateKey) => {
     });
     latest[param] = {
       ...items[0],
-      history: items.slice(0, 3).map(h => ({
+      history: items.slice(1, 3).map(h => ({
         rawTs: h.rawTs,
         value: h.value,
         unit: h.unit,
+        status: determineStatus(param, h.value)
       })),
     };
   }
@@ -194,7 +195,6 @@ export default function Home() {
   const [flatData, setFlatData] = useState([]);
   const [selectedDate, setSelectedDate] = useState(todayIso);
   const [calendarMonth, setCalendarMonth] = useState(todayIso.slice(0, 7) + '-01');
-  const [statusFilter, setStatusFilter] = useState('All');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Use ref to store marked dates and prevent unnecessary re-renders
@@ -467,7 +467,7 @@ export default function Home() {
         </Modal>
 
         {/* Filters */}
-        <View style={homeStyles.filtersContainer}>
+        {/* <View style={homeStyles.filtersContainer}>
           {['All', 'Normal', 'Abnormal'].map(f => (
             <TouchableOpacity
               key={f}
@@ -485,7 +485,7 @@ export default function Home() {
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </View> */}
 
         {/* Two-column grid */}
         <ScrollView
@@ -498,54 +498,95 @@ export default function Home() {
               <Text style={homeStyles.noMeasurementText}>You have no measurement yet</Text>
             </View>
           ) : (
-            Object.entries(latestRecords)
-              .filter(([param, rec]) => statusFilter === 'All' || rec.status === statusFilter)
-              .map(([param, rec]) => (
-                <TouchableOpacity
-                  key={param}
-                  style={homeStyles.parameterBox}
-                  onPress={() =>
-                    router.push({
-                      pathname: 'parameter',
-                      params: { parameter: param }
-                    })
-                  }
-                  activeOpacity={0.7}
-                >
-                  <View style={homeStyles.parameterHeader}>
-                    <Text style={homeStyles.parameterTitle}>{param}</Text>
-                    <Text style={homeStyles.parameterArrow}>›</Text>
-                  </View>
-                  <View style={homeStyles.parameterValueContainer}>
-                    <Text style={homeStyles.parameterValue}>
-                      {rec.value}
-                      <Text style={homeStyles.parameterUnit}> {rec.unit}</Text>
-                    </Text>
-                    <Text style={[
-                      homeStyles.parameterStatus,
-                      rec.status === 'Normal'
-                        ? homeStyles.normalStatus
-                        : homeStyles.abnormalStatus
-                    ]}>
-                      {rec.status}
-                    </Text>
-                  </View>
-                  <View style={homeStyles.historyContainer}>
-                    {rec.history.map((h, j) => (
-                      <Text key={j} style={homeStyles.historyItem}>
-                        • {h.value} {h.unit}, {formatTime(h.rawTs)}
+            <>
+              {Object.entries(latestRecords)
+                .map(([param, rec]) => (
+                  <TouchableOpacity
+                    key={param}
+                    style={homeStyles.parameterBox}
+                    onPress={() =>
+                      router.push({
+                        pathname: 'parameter',
+                        params: { parameter: param }
+                      })
+                    }
+                    activeOpacity={0.7}
+                  >
+                    <View style={homeStyles.parameterHeader}>
+                      <Text style={homeStyles.parameterTitle}>{param}</Text>
+                      <Text style={homeStyles.parameterArrow}>›</Text>
+                    </View>
+                    <View style={homeStyles.parameterValueContainer}>
+                      <Text style={homeStyles.parameterValue}>
+                        {rec.value}
+                        <Text style={homeStyles.parameterUnit}> {rec.unit}</Text>
                       </Text>
-                    ))}
-                  </View>
-                  {/* {rec.status === 'Abnormal' && (
-                    <View style={homeStyles.infoBox}>
-                      <Text style={homeStyles.infoTitle}>
-                        {getAbnormalMessage(param, parseFloat(rec.value))}
+                      <Text style={[
+                        homeStyles.parameterStatus,
+                        rec.status === 'Normal'
+                          ? homeStyles.normalStatus
+                          : homeStyles.abnormalStatus
+                      ]}>
+                        {rec.status}
                       </Text>
                     </View>
-                  )} */}
-                </TouchableOpacity>
-              ))
+                    {rec.history.length > 0 && (
+                      <View style={homeStyles.historyContainer}>
+                        {rec.history.map((h, j) => (
+                          <View key={j} style={homeStyles.historyItemContainer}>
+                            <Text style={homeStyles.historyItem}>
+                              • {h.value} {h.unit}, {formatTime(h.rawTs)}
+                            </Text>
+                            <View style={[
+                              homeStyles.statusCircle,
+                              h.status === 'Normal' ? homeStyles.normalCircle : homeStyles.abnormalCircle
+                            ]} />
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+
+              {/* Warning Message Section */}
+              {isToday && (() => {
+                const abnormalParams = Object.entries(latestRecords)
+                  .filter(([param, rec]) =>
+                    rec.status === 'Abnormal' &&
+                    rec.history.every(h => h.status === 'Abnormal')
+                  )
+                  .map(([param]) => param);
+
+                if (abnormalParams.length > 0) {
+                  const formattedParams = abnormalParams.map(param => (
+                    <Text key={param} style={homeStyles.warningBoldText}>{param}</Text>
+                  ));
+
+                  return (
+                    <View style={homeStyles.warningBox}>
+                      <Text style={homeStyles.warningText}>
+                        All your{' '}
+                        {abnormalParams.length === 1 ? (
+                          formattedParams
+                        ) : (
+                          <>
+                            {formattedParams.slice(0, -1).map((param, i) => (
+                              <React.Fragment key={i}>
+                                {param}
+                                {i < formattedParams.length - 2 ? ', ' : ' and '}
+                              </React.Fragment>
+                            ))}
+                            {formattedParams[formattedParams.length - 1]}
+                          </>
+                        )}{' '}
+                        measurements today are abnormal. Please consult with your doctor.
+                      </Text>
+                    </View>
+                  );
+                }
+                return null;
+              })()}
+            </>
           )}
         </ScrollView>
       </SafeAreaView>

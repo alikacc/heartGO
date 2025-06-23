@@ -94,13 +94,22 @@ export const UserProvider = ({ children }) => {
                   qrs REAL NOT NULL,
                   heartvariance REAL NOT NULL,
                   timestamp TEXT NOT NULL,
-                  metadata TEXT
+                  metadata TEXT,
+                  filename TEXT
                 );
             `);
             console.log(`✅ Table created/verified: ${tableName}`);
 
-            // Verify the table structure
+            // Check if filename column exists, add it if it doesn't (for existing tables)
             const tableInfo = await database.getAllAsync(`PRAGMA table_info(${tableName});`);
+            const hasFilename = tableInfo.some(col => col.name === 'filename');
+
+            if (!hasFilename) {
+                await database.runAsync(`ALTER TABLE ${tableName} ADD COLUMN filename TEXT;`);
+                console.log(`✅ Added filename column to existing table: ${tableName}`);
+            }
+
+            // Verify the table structure
             console.log(`📋 Table ${tableName} columns:`, tableInfo.map(col => `${col.name}(${col.type})`).join(', '));
 
         } catch (error) {

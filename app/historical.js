@@ -12,6 +12,7 @@ import {
   ScrollView,
   Platform,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { format, parseISO, parse, isValid } from 'date-fns';
@@ -22,22 +23,34 @@ import Header from './component/header';
 import { useUser } from './UserContext';
 import { sharedStyles } from './styles/shared';
 import { historicalStyles } from './styles/components/historicalStyles';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 const PAGE_SIZE = 6;
+const MAX_DATE_SPAN_DAYS = 31;
 
 // Transform DB rows to history format
 const transformDbToHistory = (rows) => {
   return rows.map(r => {
     const rawTs = typeof r.timestamp === 'string' ? r.timestamp : '';
     const dt = parse(rawTs, 'dd/MM/yyyy HH:mm:ss', new Date());
+
+    // Format date for filtering (YYYY-MM-DD only)
     const dateKey = isValid(dt) ? format(dt, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
 
+    // Store full timestamp for display and sorting
+    const fullTimestamp = isValid(dt) ? format(dt, 'yyyy-MM-dd HH:mm:ss') : format(new Date(), 'yyyy-MM-dd HH:mm:ss');
+
     return {
-      date: dateKey,
+      date: dateKey, // Just the date part for filtering
+      fullTimestamp, // Full timestamp for sorting
       hr: r.heartrate || r.heartbeat || 0,
       qrs: r.qrs || 0,
       qtc: r.qt || 0,
       heartvariance: r.heartvariance || 0,
+      filename: r.filename || null,
+      // Store original timestamp for display
+      displayDate: rawTs || format(new Date(), 'dd/MM/yyyy HH:mm:ss'),
     };
   });
 };
@@ -53,190 +66,220 @@ export default function HistoryScreen() {
   const [page, setPage] = useState(0);
   const [sortField, setSortField] = useState('date');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [availableDates, setAvailableDates] = useState([]);
 
   const todayIso = format(new Date(), 'yyyy-MM-dd');
-  const maxMonth = useMemo(() => todayIso.slice(0, 7), [todayIso]);
 
   // Load data effect with better error handling
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadData = async () => {
-      if (!db || !currentUser) {
-        console.log('⚠️ Database or current user not ready yet');
-        if (!cancelled) {
-          setHistoryData([]);
-          setPage(0);
-        }
-        return;
-      }
-
-      try {
-        const tableName = getCurrentUserTable();
-        console.log(`📊 Loading historical data from table: ${tableName} for user: ${currentUser.name}`);
-
-        // Check if table exists first
-        const tableExists = await db.getFirstAsync(`
-          SELECT name FROM sqlite_master 
-          WHERE type='table' AND name=?;
-        `, tableName);
-
-        if (!tableExists) {
-          console.log(`⚠️ Table ${tableName} does not exist yet`);
-          if (!cancelled) {
-            setHistoryData([]);
-            setPage(0);
-          }
-          return;
-        }
-
-        const rows = await db.getAllAsync(`SELECT * FROM ${tableName};`);
-        console.log(`📈 Loaded ${rows.length} historical records from ${tableName}`);
-
-        const transformedData = transformDbToHistory(rows);
-        setHistoryData(transformedData);
-
-        // Set initial date range if we have data
-        if (transformedData.length > 0) {
-          const dates = transformedData.map(r => r.date).sort();
-          const firstDate = dates[0];
-          const lastDate = dates[dates.length - 1];
-
-          setStartDate(firstDate);
-          setEndDate(lastDate);
-          setCalendarMonth(firstDate.slice(0, 7) + '-01');
-        } else {
-          // No data, set to today
-          setStartDate(todayIso);
-          setEndDate(todayIso);
-          setCalendarMonth(todayIso.slice(0, 7) + '-01');
-        }
-      } catch (error) {
-        console.error('❌ Error loading historical data:', error);
-        if (!cancelled) {
-          setHistoryData([]);
-          setPage(0);
-        }
-      }
-    };
-
-    loadData();
-    return () => { cancelled = true };
-  }, [db, currentUser, getCurrentUserTable, startDate, endDate, sortField, sortDirection]);
-
-  useFocusEffect(useCallback(() => {
-    let cancelled = false;
-
-    const loadData = async () => {
-      if (!db || !currentUser) {
-        console.log('⚠️ Database or current user not ready yet');
-        if (!cancelled) {
-          setHistoryData([]);
-          setPage(0);
-        }
-        return;
-      }
-
-      try {
-        const tableName = getCurrentUserTable();
-        console.log(`📊 Loading historical data from table: ${tableName} for user: ${currentUser.name}`);
-
-        // Check if table exists first
-        const tableExists = await db.getFirstAsync(`
-          SELECT name FROM sqlite_master 
-          WHERE type='table' AND name=?;
-        `, tableName);
-
-        if (!tableExists) {
-          console.log(`⚠️ Table ${tableName} does not exist yet`);
-          if (!cancelled) {
-            setHistoryData([]);
-            setPage(0);
-          }
-          return;
-        }
-
-        const rows = await db.getAllAsync(`SELECT * FROM ${tableName};`);
-        console.log(`📈 Loaded ${rows.length} historical records from ${tableName}`);
-
-        const transformedData = transformDbToHistory(rows);
-        setHistoryData(transformedData);
-
-        // Set initial date range if we have data
-        if (transformedData.length > 0) {
-          const dates = transformedData.map(r => r.date).sort();
-          const firstDate = dates[0];
-          const lastDate = dates[dates.length - 1];
-
-          setStartDate(firstDate);
-          setEndDate(lastDate);
-          setCalendarMonth(firstDate.slice(0, 7) + '-01');
-        } else {
-          // No data, set to today
-          setStartDate(todayIso);
-          setEndDate(todayIso);
-          setCalendarMonth(todayIso.slice(0, 7) + '-01');
-        }
-      } catch (error) {
-        console.error('❌ Error loading historical data:', error);
-        if (!cancelled) {
-          setHistoryData([]);
-          setPage(0);
-        }
-      }
-    };
-
-    loadData();
-    return () => { cancelled = true };
-  }, [db, currentUser, getCurrentUserTable, todayIso, startDate, endDate, sortField, sortDirection]));
-
-  // Console log the fetched database data for the selected date span
-  useEffect(() => {
-    if (historyData.length > 0 && startDate && endDate) {
-      const filteredDataForDateSpan = historyData.filter(r => r.date >= startDate && r.date <= endDate);
-
-      console.log(`📅 Fetched database data for date span: ${startDate} to ${endDate}`);
-      console.log(`📊 Total records in database: ${historyData.length}`);
-      console.log(`🔍 Records within date span: ${filteredDataForDateSpan.length}`);
-      console.log(`📈 Full historical data:`, historyData);
-      console.log(`📋 Filtered data for date span (${startDate} to ${endDate}):`, filteredDataForDateSpan);
-      console.log(`👤 Current user: ${currentUser?.name}`);
-      console.log(`🗃️ Table name: ${getCurrentUserTable()}`);
+  const loadData = useCallback(async () => {
+    if (!db || !currentUser) {
+      console.log('⚠️ Database or current user not ready yet');
+      setHistoryData([]);
+      setPage(0);
+      return;
     }
-  }, [historyData, startDate, endDate, currentUser, getCurrentUserTable]);
 
-  // Available dates from data
-  const availableDates = useMemo(() =>
+    try {
+      const tableName = getCurrentUserTable();
+
+      // First, get all available dates for the calendar
+      const datesQuery = `
+        SELECT DISTINCT date(substr(timestamp, 7, 4) || '-' || substr(timestamp, 4, 2) || '-' || substr(timestamp, 1, 2)) as date 
+        FROM ${tableName} 
+        ORDER BY date DESC;
+      `;
+      const dateRows = await db.getAllAsync(datesQuery);
+      const dates = dateRows.map(row => row.date);
+      setAvailableDates(dates);
+
+      // Set initial dates if not set
+      if (!startDate || !endDate) {
+        if (dates.length > 0) {
+          const latestDate = dates[0];
+          setStartDate(latestDate);
+          setEndDate(latestDate);
+          setCalendarMonth(latestDate.slice(0, 7) + '-01');
+        } else {
+          const today = format(new Date(), 'yyyy-MM-dd');
+          setStartDate(today);
+          setEndDate(today);
+          setCalendarMonth(today.slice(0, 7) + '-01');
+        }
+        return; // Don't load data yet until dates are set
+      }
+
+      // Only fetch data for the selected date range
+      console.log(`📊 Loading data from ${tableName} for date range: ${startDate} to ${endDate}`);
+
+      const dataQuery = `
+        SELECT * FROM ${tableName}
+        WHERE date(substr(timestamp, 7, 4) || '-' || substr(timestamp, 4, 2) || '-' || substr(timestamp, 1, 2))
+        BETWEEN ? AND ?
+        ORDER BY timestamp DESC;
+      `;
+
+      const rows = await db.getAllAsync(dataQuery, [startDate, endDate]);
+      console.log(`📈 Loaded ${rows.length} records for selected date range`);
+
+      const transformedData = transformDbToHistory(rows);
+      setHistoryData(transformedData);
+      setPage(0);
+
+    } catch (error) {
+      console.error('❌ Error loading historical data:', error);
+      setHistoryData([]);
+      setPage(0);
+    }
+  }, [db, currentUser, getCurrentUserTable, startDate, endDate]);
+
+  // Initial load and refresh on focus
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  // Filter and sort the data
+  const filtered = useMemo(() => {
+    let result = historyData;
+
+    // Sort the data
+    result.sort((a, b) => {
+      let aValue, bValue;
+
+      if (sortField === 'date') {
+        // Parse the full timestamp for comparison
+        aValue = parse(a.displayDate, 'dd/MM/yyyy HH:mm:ss', new Date()).getTime();
+        bValue = parse(b.displayDate, 'dd/MM/yyyy HH:mm:ss', new Date()).getTime();
+      } else {
+        aValue = parseFloat(a[sortField]) || 0;
+        bValue = parseFloat(b[sortField]) || 0;
+      }
+
+      return sortDirection === 'asc'
+        ? aValue - bValue
+        : bValue - aValue;
+    });
+
+    return result;
+  }, [historyData, sortField, sortDirection]);
+
+  // Available dates from data - use only the date part
+  const availableDatesFromData = useMemo(() =>
     [...new Set(historyData.map(r => r.date))].sort(),
     [historyData]
   );
 
-  // Filter by date window and sort
-  const filtered = useMemo(() => {
-    let result = historyData.filter(r => r.date >= startDate && r.date <= endDate);
+  const maxMonth = useMemo(() => todayIso.slice(0, 7), [todayIso]);
 
-    // Sort the data
-    result.sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
+  // Calendar marked dates - following home.js logic exactly
+  const markedDates = useMemo(() => {
+    if (!calendarMonth || availableDates.length === 0) return {};
 
-      // Convert date strings to Date objects for proper sorting
-      if (sortField === 'date') {
-        aValue = new Date(aValue);
-        bValue = new Date(bValue);
-      } else {
-        // Convert to numbers for HR, QRS, QTc
-        aValue = parseFloat(aValue) || 0;
-        bValue = parseFloat(bValue) || 0;
+    const marks = {};
+    const uniqueSet = new Set(availableDates);
+    const [year, month] = calendarMonth.split('-');
+    if (!year || !month) return {};
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const startDateObj = startDate ? new Date(startDate) : null;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayStr = String(d).padStart(2, '0');
+      const dateKey = `${year}-${month.padStart(2, '0')}-${dayStr}`;
+      const hasData = uniqueSet.has(dateKey);
+      const isSelected = dateKey === startDate || dateKey === endDate;
+      const isInRange = dateKey >= startDate && dateKey <= endDate;
+
+      // Calculate if this date would exceed the max span limit
+      let isDisabled = false;
+      if (!isSelectingStart && startDateObj && hasData) {
+        const currentDate = new Date(dateKey);
+        const daysDifference = Math.abs(Math.floor((currentDate - startDateObj) / (1000 * 60 * 60 * 24)));
+        isDisabled = daysDifference > MAX_DATE_SPAN_DAYS;
       }
 
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
+      // Mark dates with data or in selected range
+      if (hasData || isSelected || (isInRange && startDate !== endDate)) {
+        marks[dateKey] = {
+          customStyles: {
+            container: {
+              backgroundColor: isSelected ? '#36f' : (isInRange ? '#E8F4FF' : 'transparent'),
+              borderRadius: isSelected ? 15 : 0,
+              borderTopWidth: isInRange && !isSelected ? 1 : 0,
+              borderBottomWidth: isInRange && !isSelected ? 1 : 0,
+              borderLeftWidth: (isInRange && !isSelected) || dateKey === startDate ? 1 : 0,
+              borderRightWidth: (isInRange && !isSelected) || dateKey === endDate ? 1 : 0,
+              borderColor: '#36f',
+              marginLeft: dateKey === startDate ? -1 : 0,
+              marginRight: dateKey === endDate ? -1 : 0,
+              opacity: isDisabled ? 0.3 : 1, // Dim dates that would exceed the limit
+            },
+            text: {
+              color: isSelected ? '#fff' : (hasData ? (isDisabled ? '#999' : '#36f') : '#2d4150'),
+              fontWeight: hasData || isSelected ? 'bold' : 'normal',
+            },
+          },
+        };
+      }
+    }
 
-    return result;
-  }, [historyData, startDate, endDate, sortField, sortDirection]);
+    return marks;
+  }, [calendarMonth, availableDates, startDate, endDate, isSelectingStart]);
+
+  const handleDayPress = useCallback((day) => {
+    const selectedDate = day.dateString;
+
+    // Only allow selection of dates with data
+    if (!availableDates.includes(selectedDate)) return;
+
+    if (isSelectingStart) {
+      // When selecting start date, set both start and end to the same date
+      setStartDate(selectedDate);
+      setEndDate(selectedDate);
+      setIsSelectingStart(false);
+      setPage(0); // Reset to first page
+    } else {
+      // When selecting end date
+      const startDateTime = new Date(startDate);
+      const endDateTime = new Date(selectedDate);
+      const daysDifference = Math.abs(Math.floor((endDateTime - startDateTime) / (1000 * 60 * 60 * 24)));
+
+      // Check if date span exceeds maximum allowed days
+      if (daysDifference > MAX_DATE_SPAN_DAYS) {
+        Alert.alert(
+          'Date Range Too Large',
+          `Please select a date range of ${MAX_DATE_SPAN_DAYS} days or less to ensure optimal performance.`
+        );
+        return;
+      }
+
+      if (endDateTime < startDateTime) {
+        // If end date is before start date, swap them
+        setStartDate(selectedDate);
+        setEndDate(startDate);
+      } else {
+        setEndDate(selectedDate);
+      }
+      setPage(0); // Reset to first page
+    }
+  }, [isSelectingStart, startDate, availableDates]);
+
+  const openDatePicker = useCallback(() => {
+    setIsSelectingStart(true);
+    setShowDatePicker(true);
+  }, []);
+
+  const handleMonthChange = useCallback((month) => {
+    const newMonthStr = `${month.year}-${String(month.month).padStart(2, '0')}`;
+    if (newMonthStr <= maxMonth) {
+      setCalendarMonth(`${newMonthStr}-01`);
+    }
+  }, [maxMonth]);
 
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const rows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -252,103 +295,54 @@ export default function HistoryScreen() {
     setPage(0); // Reset to first page when sorting changes
   };
 
-  // Calendar marked dates
-  const markedDates = useMemo(() => {
-    if (!calendarMonth || availableDates.length === 0) return {};
-
-    const marks = {};
-    const availableDatesSet = new Set(availableDates);
-    const [year, month] = calendarMonth.split('-');
-
-    if (!year || !month) return {};
-
-    const daysInMonth = new Date(parseInt(year, 10), parseInt(month, 10), 0).getDate();
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${year}-${month}-${String(day).padStart(2, '0')}`;
-      const hasData = availableDatesSet.has(dateStr);
-      const isStartDate = dateStr === startDate;
-      const isEndDate = dateStr === endDate;
-      const isInRange = dateStr >= startDate && dateStr <= endDate;
-      const isToday = dateStr === todayIso;
-
-      if (hasData || isStartDate || isEndDate) {
-        let backgroundColor = 'transparent';
-        let textColor = '#09f';
-        let fontWeight = 'bold';
-
-        if (isStartDate || isEndDate) {
-          backgroundColor = '#09f';
-          textColor = '#fff';
-          fontWeight = 'bold';
-        } else if (isInRange && hasData) {
-          backgroundColor = '#E8F4FF';
-          textColor = '#09f';
-        } else if (isToday && hasData) {
-          backgroundColor = '#E8F4FF';
-          fontWeight = '600';
-        }
-
-        marks[dateStr] = {
-          customStyles: {
-            container: {
-              backgroundColor,
-              borderRadius: 16,
-              borderWidth: isToday && !isStartDate && !isEndDate ? 1 : 0,
-              borderColor: isToday && !isStartDate && !isEndDate ? '#09f' : 'transparent',
-            },
-            text: {
-              color: textColor,
-              fontWeight: fontWeight,
-            }
-          }
-        };
-      }
-    }
-
-    return marks;
-  }, [availableDates, startDate, endDate, calendarMonth, todayIso]);
-
-  const handleDayPress = useCallback((day) => {
-    if (!availableDates.includes(day.dateString)) return;
-
-    if (isSelectingStart) {
-      setStartDate(day.dateString);
-      setIsSelectingStart(false);
-      if (day.dateString > endDate) {
-        setEndDate(day.dateString);
-      }
-    } else {
-      setEndDate(day.dateString);
-      setIsSelectingStart(true);
-      if (day.dateString < startDate) {
-        setStartDate(day.dateString);
-      }
-      setShowDatePicker(false);
-    }
-  }, [isSelectingStart, availableDates, startDate, endDate]);
-
-  const handleMonthChange = useCallback((month) => {
-    const newMonthStr = `${month.year}-${String(month.month).padStart(2, '0')}`;
-    if (newMonthStr <= maxMonth) {
-      setCalendarMonth(`${newMonthStr}-01`);
-    }
-  }, [maxMonth]);
-
-  const openDatePicker = useCallback(() => {
-    setIsSelectingStart(true);
-    setShowDatePicker(true);
-  }, []);
-
-  const closeDatePicker = useCallback(() => {
-    setShowDatePicker(false);
-    setIsSelectingStart(true);
-  }, []);
-
   const goToToday = useCallback(() => {
     const todayMonth = todayIso.slice(0, 7) + '-01';
     setCalendarMonth(todayMonth);
   }, [todayIso]);
+
+  // Add function to open saved PDF
+  const openSavedPDF = async (filename) => {
+    if (!filename) {
+      Alert.alert('No Plot', 'No saved plot available for this measurement');
+      return;
+    }
+
+    try {
+      const databaseDir = FileSystem.documentDirectory + 'SQLite/';
+      const filePath = databaseDir + filename;
+
+      console.log('🔍 Looking for PDF at:', filePath);
+
+      // Check if file exists
+      const fileInfo = await FileSystem.getInfoAsync(filePath);
+      console.log('📄 File info:', fileInfo);
+
+      if (!fileInfo.exists) {
+        Alert.alert('File Not Found', `The saved plot file could not be found at: ${filePath}`);
+        return;
+      }
+
+      if (fileInfo.size === 0) {
+        Alert.alert('Invalid File', 'The saved plot file appears to be empty');
+        return;
+      }
+
+      console.log(`✅ Found PDF file: ${fileInfo.size} bytes`);
+
+      // Share/open the PDF
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(filePath, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'ECG Plot'
+        });
+      } else {
+        Alert.alert('Success', `Plot file found at: ${filePath} (${fileInfo.size} bytes)`);
+      }
+    } catch (error) {
+      console.error('❌ Error opening PDF:', error);
+      Alert.alert('Error', `Failed to open the saved plot: ${error.message}`);
+    }
+  };
 
   return (
     <View style={sharedStyles.container}>
@@ -375,10 +369,16 @@ export default function HistoryScreen() {
           visible={showDatePicker}
           transparent
           animationType="slide"
-          onRequestClose={closeDatePicker}
+          onRequestClose={() => {
+            setShowDatePicker(false);
+            setIsSelectingStart(true);
+          }}
         >
           <View style={historicalStyles.modalBackdrop}>
-            <TouchableOpacity style={historicalStyles.modalOverlay} activeOpacity={1} onPress={closeDatePicker} />
+            <TouchableOpacity style={historicalStyles.modalOverlay} activeOpacity={1} onPress={() => {
+              setShowDatePicker(false);
+              setIsSelectingStart(true);
+            }} />
             <View style={historicalStyles.modalContainer}>
               <View style={historicalStyles.modalHeader}>
                 <View style={historicalStyles.headerLeft}>
@@ -391,7 +391,10 @@ export default function HistoryScreen() {
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={closeDatePicker} style={historicalStyles.closeButton}>
+                <TouchableOpacity onPress={() => {
+                  setShowDatePicker(false);
+                  setIsSelectingStart(true);
+                }} style={historicalStyles.closeButton}>
                   <Text style={historicalStyles.closeButtonText}>Done</Text>
                 </TouchableOpacity>
               </View>
@@ -402,8 +405,16 @@ export default function HistoryScreen() {
                 maxDate={todayIso}
                 onDayPress={handleDayPress}
                 markedDates={markedDates}
+                markingType="custom"
                 onMonthChange={handleMonthChange}
+                disableAllTouchEventsForDisabledDays={true}
+                enableSwipeMonths={true}
                 hideExtraDays={true}
+                firstDay={1}
+                disableMonthChange={false}
+                hideArrows={false}
+                disableArrowLeft={false}
+                disableArrowRight={calendarMonth && calendarMonth.slice(0, 7) >= maxMonth}
                 theme={{
                   backgroundColor: '#ffffff',
                   calendarBackground: '#ffffff',
@@ -497,22 +508,30 @@ export default function HistoryScreen() {
             </View>
           </View>
 
-          <ScrollView style={historicalStyles.tableBody}>
+          <View style={historicalStyles.tableBody}>
             {rows.map((r, i) => (
               <View key={i} style={[historicalStyles.tableRow, i % 2 === 0 && historicalStyles.evenRow]}>
                 <Text style={[historicalStyles.cell, historicalStyles.colDate, historicalStyles.cellText]}>
-                  {format(parseISO(r.date), 'dd/MM/yyyy')}
+                  {r.displayDate}
                 </Text>
                 <Text style={[historicalStyles.cell, historicalStyles.colSmall, historicalStyles.cellText]}>{r.hr}</Text>
                 <Text style={[historicalStyles.cell, historicalStyles.colSmall, historicalStyles.cellText]}>{r.qrs}</Text>
                 <Text style={[historicalStyles.cell, historicalStyles.colSmall, historicalStyles.cellText]}>{r.qtc}</Text>
                 <Text style={[historicalStyles.cell, historicalStyles.colSmall, historicalStyles.cellText]}>{r.heartvariance}</Text>
-                <TouchableOpacity style={[historicalStyles.cell, historicalStyles.colPlot, { alignItems: 'center' }]}>
-                  <MaterialCommunityIcons name="chart-line" size={20} color="#09f" />
+                <TouchableOpacity
+                  style={[historicalStyles.cell, historicalStyles.colPlot, { alignItems: 'center' }]}
+                  onPress={() => openSavedPDF(r.filename)}
+                  disabled={!r.filename}
+                >
+                  <MaterialCommunityIcons
+                    name="chart-line"
+                    size={20}
+                    color={r.filename ? "#09f" : "#ccc"}
+                  />
                 </TouchableOpacity>
               </View>
             ))}
-          </ScrollView>
+          </View>
 
           {/* Pagination sticks directly to table */}
           <View style={historicalStyles.pager}>

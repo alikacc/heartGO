@@ -160,17 +160,18 @@ export default function ParameterScreen() {
 
   // Helper function to parse metadata
   const parseMetadata = (metadataStr) => {
-    if (!metadataStr) return { tags: [], notes: '' }
+    if (!metadataStr) return { tags: [], notes: '' };
     try {
-      const parsed = JSON.parse(metadataStr)
+      const parsed = JSON.parse(metadataStr);
       return {
-        tags: parsed.t || [],
-        notes: parsed.n || ''
-      }
-    } catch {
-      return { tags: [], notes: '' }
+        tags: parsed.tags || [],
+        notes: parsed.notes || ''
+      };
+    } catch (error) {
+      console.error('Failed to parse metadata:', error);
+      return { tags: [], notes: '' };
     }
-  }
+  };
 
   return (
     <View style={styles.container}>

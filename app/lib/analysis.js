@@ -128,7 +128,7 @@ function peakRdetect(signal, smoothwindow = 0.1, avgwindow = 0.75,
     return peak;
 }
 
-// Function to calculate 12-lead ECG from Lead I and Lead II
+// Function to calculate 6-lead ECG from Lead I and Lead II
 function calculateAllLeads(lead1, lead2) {
     if (!lead1 || !lead2 || lead1.length === 0 || lead2.length === 0) {
         return {
@@ -211,9 +211,7 @@ function segment(signal, peaks, period, frek, ratio = 0.35) {
         const beat = [];
         const mulai = peaks[i] - start;
         for (let j = 0; j < dur; j++) {
-            if (mulai + j >= 0 && mulai + j < signal.length) {
-                beat.push(signal[mulai + j]);
-            }
+            beat.push(signal[mulai + j]);
         }
         heartbeat.push(beat);
     }
@@ -402,8 +400,8 @@ export default function useECGAnalysis(deviceId, shouldStop = false) {
                 console.log(`🔄 Processing complete ECG data: Lead1=${lead1Data.length}, Lead2=${lead2Data.length} samples`);
 
                 // Apply FIR filter to raw leads
-                const filteredRawLead1 = applyFIRFilter(lead1Data, koefFIRmatlab);
-                const filteredRawLead2 = applyFIRFilter(lead2Data, koefFIRmatlab);
+                const filteredRawLead1 = forwardBackwardFIRFilter(lead1Data, koefFIRmatlab);
+                const filteredRawLead2 = forwardBackwardFIRFilter(lead2Data, koefFIRmatlab);
 
                 // Calculate all 6 leads from the filtered raw data
                 const allLeads = calculateAllLeads(filteredRawLead1, filteredRawLead2);
