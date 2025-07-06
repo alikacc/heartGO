@@ -1,50 +1,62 @@
-# Welcome to your Expo app 👋
+# HeartGo: Offline 6-Lead ECG Monitoring App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**HeartGo** is a React Native application that connects to a Bluetooth Low Energy (BLE) ECG device to visualize and export clinically accurate 6-lead ECG signals in real time — entirely offline.
 
-## Get started
+---
 
-1. Install dependencies
+## 📋 Features
 
-   ```bash
-   npm install
-   ```
+- ✅ **6-Lead ECG Rendering** (Leads I, II, III, aVR, aVL, aVF)
+- ✅ **Live BLE Streaming** from ECG device
+- ✅ **Clinical Grid Format**: 25 mm/s, 10 mm/mV ECG paper simulation
+- ✅ **Multi-Lead PDF Export** with high-resolution vector rendering
+- ✅ **Offline-first**: no cloud, no internet, suitable for remote clinics or field use
+- ✅ **Lead Labels**, Major/Minor Grid Lines, Real-Time Visualization
+- ✅ **Designed for mobile and tablet (A4 portrait PDF support)**
 
-2. Start the app
+---
 
-   ```bash
-    npx expo start
-   ```
+## 📱 Technology Stack
 
-In the output, you'll find options to open the app in a
+| Layer        | Tech                                   |
+|-------------|----------------------------------------|
+| Frontend    | React Native + Expo                    |
+| BLE         | [react-native-ble-plx](https://github.com/dotintent/react-native-ble-plx) |
+| ECG Display | Custom SVG rendering (based on sampling rate, scale) |
+| Export      | `expo-print` + `expo-sharing` for PDF  |
+| Storage     | (Optional) SQLite or AsyncStorage for local session logs |
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🩺 ECG Visualization Details
 
-## Get a fresh project
+- **Sampling Rate**: 320 Hz
+- **Grid Scale**:
+  - Horizontal: 25 mm/s (1 second = 25 mm)
+  - Vertical: 10 mm/mV (1 mV = 10 mm)
+- **Layout**:
+  - 6 stacked leads per page: I, II, III, aVR, aVL, aVF
+  - Each lead occupies equal vertical height
+  - Full A4 portrait layout
+- **PDF Generation**:
+  - High-fidelity vector output
+  - Includes grid, lead labels, and voltage scaling
+  - Grid major lines every 5 mm (thicker stroke)
 
-When you're ready, run:
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js ≥ 18.x
+- Expo CLI (`npm install -g expo-cli`)
+- Physical device (BLE needed)
+
+### Installation
 
 ```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+git clone https://github.com/yourusername/heartgo.git
+cd heartgo
+npm install
+expo start
