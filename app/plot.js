@@ -137,7 +137,9 @@ export async function generateECGPDF(realEcgData, userData = null, measurementDa
   const completeLargeBoxes = Math.ceil(pageW / LARGE_SQ)
   const adjustedPageW = completeLargeBoxes * LARGE_SQ
 
-  const framesPerPage = COLS * ROWS  // seconds per page
+  // FIX: Use COLS (8) instead of COLS * ROWS (32) for seconds per page
+  // This matches your visual layout which is designed for 8 seconds wide
+  const framesPerPage = COLS  // 8 seconds per page, not 32
 
   // Calculate total duration from data length and sample rate
   const totalSeconds = realEcgData.length / SAMPLE_RATE
@@ -160,12 +162,14 @@ export async function generateECGPDF(realEcgData, userData = null, measurementDa
 
   // Build HTML for each ECG page
   const ecgPagesHtml = Array.from({ length: numPages }).map((_, pageIdx) => {
-    const startSecond = pageIdx * framesPerPage
-    const endSecond = startSecond + framesPerPage
+    const startSecond = pageIdx * framesPerPage  // Now correctly 8 seconds per page
+    const endSecond = startSecond + framesPerPage // 8 seconds of data per page
 
     // Convert to sample indices
     const startSample = Math.floor(startSecond * SAMPLE_RATE)
     const endSample = Math.min(Math.floor(endSecond * SAMPLE_RATE), realEcgData.length)
+
+    console.log(`Page ${pageIdx + 1}: ${startSecond}s to ${endSecond}s (samples ${startSample} to ${endSample})`)
 
     // Divide page into six equal vertical strips
     const segmentHeight = pageH / 6
@@ -179,6 +183,9 @@ export async function generateECGPDF(realEcgData, userData = null, measurementDa
         // Calculate time relative to start of this page
         const t = (i / SAMPLE_RATE) - startSecond
         const x = t * PX_PER_SEC
+
+        // Ensure we don't plot beyond the page width
+        if (x > adjustedPageW) break
 
         // vertical center of this strip
         const yCenter = leadIdx * segmentHeight + segmentHeight / 2
@@ -265,7 +272,7 @@ export async function generateECGPDF(realEcgData, userData = null, measurementDa
       <div class="page">
         <div class="header">
           Enhanced Filter · Mains Filter: 50 Hz · Scale: 25 mm/s, 10 mm/mV
-          Total Samples: ${totalSamples} · Duration: ${totalSeconds.toFixed(1)}s
+          Page ${pageIdx + 1}/${numPages} · Time: ${startSecond}s-${endSecond}s · Total Duration: ${totalSeconds.toFixed(1)}s
         </div>
         <svg
           width="${adjustedPageW}"
